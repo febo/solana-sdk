@@ -264,10 +264,35 @@ impl<'a, 'b, const SIZE: usize> From<&'b [Seed<'a>; SIZE]> for Signer<'a, 'b> {
 /// let signer = signer!(b"seed", &[pda_bump]);
 /// ```
 #[macro_export]
+#[deprecated(since = "0.8.0", note = "Use `seeds!` macro instead")]
 macro_rules! signer {
     ( $($seed:expr),* ) => {
             $crate::instruction::Signer::from(&[$(
                 $seed.into(),
             )*])
+    };
+}
+
+/// Convenience macro for constructing a `[Seed; N]` array from a list of seeds.
+///
+/// # Example
+///
+/// Creating seeds array and signer for a PDA with a single seed and bump value:
+/// ```
+/// use pinocchio::{seeds, instruction::Signer};
+/// use pinocchio::pubkey::Pubkey;
+///
+/// let pda_bump = 0xffu8;
+/// let pda_ref = &[pda_bump];  // prevent temporary value being freed
+/// let example_key = Pubkey::default();
+/// let seeds = seeds!(b"seed", &example_key, pda_ref);
+/// let signer = Signer::from(&seeds);
+/// ```
+#[macro_export]
+macro_rules! seeds {
+    ( $($seed:expr),* ) => {
+        [$(
+            $crate::instruction::Seed::from($seed),
+        )*]
     };
 }
