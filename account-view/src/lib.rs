@@ -12,21 +12,8 @@ use crate::syscalls::sol_memset_;
 use crate::{program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 
 /// Maximum number of bytes a program may add to an account during a
-/// single realloc.
+/// single top-level instruction.
 pub const MAX_PERMITTED_DATA_INCREASE: usize = 1_024 * 10;
-
-/// Returns the account info at the given index.
-///
-/// This macro validates that the index is within the bounds of the accounts.
-#[macro_export]
-macro_rules! get_account_info {
-    ( $accounts:ident, $index:expr ) => {{
-        if $accounts.len() <= $index {
-            return Err($crate::program_error::ProgramError::NotEnoughAccountKeys);
-        }
-        &$accounts[$index]
-    }};
-}
 
 /// Raw account data.
 ///
@@ -69,16 +56,16 @@ pub(crate) struct Account {
     /// the maximum permitted data increase.
     original_data_len: u32,
 
-    /// Public key of the account
+    /// Public key of the account.
     key: Pubkey,
 
-    /// Program that owns this account
+    /// Program that owns this account. Modifiable by programs.
     owner: Pubkey,
 
-    /// The lamports in the account.  Modifiable by programs.
+    /// The lamports in the account. Modifiable by programs.
     lamports: u64,
 
-    /// Length of the data.
+    /// Length of the data. Modifiable by programs.
     pub(crate) data_len: u64,
 }
 
@@ -118,9 +105,14 @@ impl AccountInfo {
     }
 
     /// Program that owns this account.
+    ///
+    /// # Safety
+    ///
+    /// A reference returned by this method is invalidated when [`Self::assign`]
+    /// is called.
     #[inline(always)]
-    pub fn owner(&self) -> &Pubkey {
-        unsafe { &(*self.raw).owner }
+    pub unsafe fn owner(&self) -> &Pubkey {
+        &(*self.raw).owner
     }
 
     /// Indicates whether the transaction was signed by this account.
@@ -163,13 +155,21 @@ impl AccountInfo {
         self.data_len() == 0
     }
 
-    /// Changes the owner of the account.
-    #[allow(invalid_reference_casting)]
+    /// Checks if the account is owned by the given program.
     #[inline(always)]
-    pub fn assign(&self, new_owner: &Pubkey) {
-        unsafe {
-            core::ptr::write_volatile(&(*self.raw).owner as *const _ as *mut Pubkey, *new_owner);
-        }
+    pub fn is_owned_by(&self, program: &Pubkey) -> bool {
+        unsafe { &(*self.raw).owner == program }
+    }
+
+    /// Changes the owner of the account.
+    ///
+    /// # Safety
+    ///
+    /// Using this method invalidates any reference returned by [`Self::owner`].
+    #[inline(always)]
+    pub unsafe fn assign(&self, new_owner: &Pubkey) {
+        #[allow(invalid_reference_casting)]
+        core::ptr::write_volatile(&(*self.raw).owner as *const _ as *mut Pubkey, *new_owner);
     }
 
     /// Returns a read-only reference to the lamports in the account.
@@ -412,7 +412,7 @@ impl AccountInfo {
         unsafe {
             let data_ptr = data.as_mut_ptr();
             // set new length in the serialized data
-            *(data_ptr.offset(-8) as *mut u64) = new_len as u64;
+            (*self.raw).data_len = new_len as u64;
             // recreate the local slice with the new length
             data.value = NonNull::from(from_raw_parts_mut(data_ptr, new_len));
         }
@@ -442,7 +442,12 @@ impl AccountInfo {
     /// This doesn't protect against future reinitialization of the account
     /// since the account data will need to be zeroed out as well; otherwise the lenght,
     /// lamports and owner can be set again before the data is wiped out from
-    /// the ledger using the keypair of the account being close.
+    /// the ledger using the keypair of the account being closed.
+    ///
+    /// # Important
+    ///
+    /// The lamports must be moved from the account prior to closing it to prevent
+    /// an unbalanced instruction error.
     #[inline]
     pub fn close(&self) -> ProgramResult {
         // make sure the account is not borrowed since we are about to
@@ -462,7 +467,12 @@ impl AccountInfo {
     /// This doesn't protect against future reinitialization of the account
     /// since the account data will need to be zeroed out as well; otherwise the lenght,
     /// lamports and owner can be set again before the data is wiped out from
-    /// the ledger using the keypair of the account being close.
+    /// the ledger using the keypair of the account being closed.
+    ///
+    /// # Important
+    ///
+    /// The lamports must be moved from the account prior to closing it to prevent
+    /// an unbalanced instruction error.
     ///
     /// # Safety
     ///
