@@ -205,6 +205,12 @@ impl AccountView {
 
     /// Checks if the account is owned by the given program.
     #[inline(always)]
+    pub fn is_owned_by(&self, program: &Pubkey) -> bool {
+        unsafe { &(*self.raw).owner == program }
+    }
+
+    /// Checks if the account is owned by the given program.
+    #[inline(always)]
     pub fn owned_by(&self, program: &Address) -> bool {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { self.owner() == program }
