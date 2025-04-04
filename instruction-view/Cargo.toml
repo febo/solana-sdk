@@ -1,0 +1,29 @@
+[package]
+name = "solana-instruction-view"
+description = "Lightweight instruction representation"
+documentation = "https://docs.rs/solana-instruction-view"
+version = "0.0.0"
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+crate-type = ["rlib"]
+
+[lints]
+workspace = true
+
+[features]
+cpi = ["dep:solana-account-view", "dep:solana-define-syscall", "dep:solana-program-error"]
+syscalls = ["dep:solana-define-syscall"]
+sysvar = ["dep:solana-account-view", "dep:solana-program-error"]
+
+[dependencies]
+solana-account-view = { workspace = true, optional = true }
+solana-address = { workspace = true }
+solana-program-error = { version = "2.2.1", git = "https://github.com/kevinheavey/solana-sdk.git", branch = "program-error-pinocchio-compat", optional = true }
+
+[target.'cfg(target_os = "solana")'.dependencies]
+solana-define-syscall = { workspace = true, optional = true }
