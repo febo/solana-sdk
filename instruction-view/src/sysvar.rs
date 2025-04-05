@@ -6,7 +6,7 @@ use {
     crate::AccountMeta,
     core::{marker::PhantomData, mem::size_of, ops::Deref},
     solana_account_view::{AccountView, Ref},
-    solana_address::{Address, PUBKEY_BYTES},
+    solana_address::{Address, ADDRESS_BYTES},
     solana_program_error::ProgramError,
 };
 
@@ -194,7 +194,7 @@ impl IntrospectedInstruction<'_> {
         // SAFETY: The first 2 bytes represent the number of accounts in the instruction.
         let offset = u16::from_le_bytes(unsafe { *(self.raw as *const [u8; 2]) }) as usize
             * size_of::<IntrospectedAccountMeta>()
-            + PUBKEY_BYTES;
+            + ADDRESS_BYTES;
 
         // SAFETY: The instruction data length is located after the program ID.
         let data_len = u16::from_le_bytes(unsafe {
