@@ -27,6 +27,7 @@ use {
         fmt,
         hash::{Hash, Hasher},
         mem::size_of,
+        ops::Deref,
         str::{from_utf8, FromStr},
     },
     num_traits::{FromPrimitive, ToPrimitive},
@@ -145,6 +146,15 @@ impl From<u64> for PubkeyError {
 #[derive(Clone, Copy, Default, Eq, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "dev-context-only-utils", derive(Arbitrary))]
 pub struct Pubkey(pub(crate) Address);
+
+impl Deref for Pubkey {
+    type Target = Address;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.as_array()
+    }
+}
 
 /// Custom impl of Hash for Pubkey
 /// allows us to skip hashing the length of the pubkey
@@ -1463,5 +1473,14 @@ mod tests {
         assert_eq!(key.as_array(), &key.to_bytes());
         // Sanity check: ensure the pointer is the same.
         assert_eq!(key.as_array().as_ptr(), key.0.as_ptr());
+    }
+
+    #[test]
+    fn test_deref_to_address() {
+        let address: Address = [1u8; 32];
+        let pubkey: Pubkey = address.into();
+        assert_eq!(*pubkey, address);
+        // Sanity check: ensure the pointer is the same.
+        assert_eq!(pubkey.as_ptr(), pubkey.as_array().as_ptr());
     }
 }
