@@ -51,6 +51,7 @@ members = [
     "hash",
     "inflation",
     "instruction",
+    "instruction-view",
     "instructions-sysvar",
     "keccak-hasher",
     "keypair",
@@ -74,7 +75,6 @@ members = [
     "program",
     "program-entrypoint",
     "program-error",
-    "instruction-view",
     "program-memory",
     "program-option",
     "program-pack",
@@ -251,6 +251,7 @@ solana-hard-forks = { path = "hard-forks", version = "2.2.1", default-features =
 solana-hash = { path = "hash", version = "2.2.1", default-features = false }
 solana-inflation = { path = "inflation", version = "2.2.1" }
 solana-instruction = { path = "instruction", version = "2.2.1", default-features = false }
+solana-instruction-view = { path = "instruction-view", version = "0.0.0" }
 solana-instructions-sysvar = { path = "instructions-sysvar", version = "2.2.1" }
 solana-keccak-hasher = { path = "keccak-hasher", version = "2.2.1" }
 solana-keypair = { path = "keypair", version = "2.2.1" }
@@ -274,7 +275,6 @@ solana-precompiles = { path = "precompiles", version = "2.2.1" }
 solana-presigner = { path = "presigner", version = "2.2.1" }
 solana-program = { path = "program", version = "2.2.1", default-features = false }
 solana-program-error = { path = "program-error", version = "2.2.1" }
-solana-instruction-view = { path = "instruction-view", version = "0.0.0" }
 solana-program-memory = { path = "program-memory", version = "2.2.1" }
 solana-program-option = { path = "program-option", version = "2.2.1" }
 solana-program-pack = { path = "program-pack", version = "2.2.1" }
