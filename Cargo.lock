@@ -2585,6 +2585,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-account-view"
+version = "0.0.0"
+dependencies = [
+ "solana-address",
+ "solana-define-syscall",
+ "solana-program-error 2.2.1 (git+https://github.com/kevinheavey/solana-sdk.git?branch=program-error-pinocchio-compat)",
+]
+
+[[package]]
 name = "solana-address"
 version = "0.0.0"
 dependencies = [
