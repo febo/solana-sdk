@@ -95,25 +95,34 @@ pub struct CpiAccount<'a> {
     _account_view: PhantomData<&'a AccountView>,
 }
 
+#[inline(always)]
+const unsafe fn ptr_from_end<T>(ptr: *const u8, delta: usize) -> *const T {
+    ptr.sub(delta) as *const T
+}
+
 impl<'a> From<&'a AccountView> for CpiAccount<'a> {
     fn from(account: &'a AccountView) -> Self {
-        CpiAccount {
-            key: account.key(),
-            lamports: &account.lamports(),
-            data_len: account.data_len() as u64,
-            // SAFETY: The caller ensures that the `AccountView` data is not mutably
-            // borrowed, so that the data pointer is valid.
-            data: unsafe { account.data_ptr() },
-            // SAFETY: The caller ensures that the `AccountView` owner is valid.
-            owner: unsafe { account.owner() },
-            // The `rent_epoch` field is not present in the `AccountView` struct,
-            // since the value occurs after the variable data of the account in
-            // the runtime input data.
-            rent_epoch: 0,
-            is_signer: account.is_signer(),
-            is_writable: account.is_writable(),
-            executable: account.executable(),
-            _account_view: PhantomData::<&'a AccountView>,
+        unsafe {
+            let data_ptr = account.data_ptr();
+
+            CpiAccount {
+                key: ptr_from_end(data_ptr, 80),
+                lamports: ptr_from_end(data_ptr, 16),
+                data_len: account.data_len() as u64,
+                // SAFETY: The caller ensures that the `AccountView` data is not mutably
+                // borrowed, so that the data pointer is valid.
+                data: data_ptr,
+                // SAFETY: The caller ensures that the `AccountView` owner is valid.
+                owner: ptr_from_end(data_ptr, 48),
+                // The `rent_epoch` field is not present in the `AccountView` struct,
+                // since the value occurs after the variable data of the account in
+                // the runtime input data.
+                rent_epoch: 0,
+                is_signer: account.is_signer(),
+                is_writable: account.is_writable(),
+                executable: account.executable(),
+                _account_view: PhantomData::<&'a AccountView>,
+            }
         }
     }
 }
