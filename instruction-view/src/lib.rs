@@ -7,6 +7,9 @@
 
 #![no_std]
 
+#[cfg(feature = "syscalls")]
+extern crate alloc;
+
 use solana_address::Address;
 
 #[cfg(feature = "cpi")]

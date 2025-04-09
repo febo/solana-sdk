@@ -1,12 +1,11 @@
 //! Syscalls to query information about instructions.
 
 #[cfg(target_os = "solana")]
-use solana_define_syscall::{define_syscall, definitions::sol_get_stack_height};
 use {
     crate::MAX_INSTRUCTION_ACCOUNTS,
-    core::{mem::MaybeUninit, slice::from_raw_parts},
-    solana_address::Address,
+    solana_define_syscall::{define_syscall, definitions::sol_get_stack_height},
 };
+use {alloc::vec::Vec, core::mem::MaybeUninit, solana_address::Address};
 
 #[cfg(target_os = "solana")]
 // Redefinition of the syscall to use different parameter types.
@@ -28,7 +27,7 @@ pub fn get_processed_sibling_instruction(index: usize) -> Option<ProcessedSiblin
     #[cfg(target_os = "solana")]
     {
         unsafe {
-            let mut sibling = ProcessedSiblingInstruction::new_uninit();
+            let mut sibling = ProcessedSiblingInstruction::uninit();
 
             if 1 == sol_get_processed_sibling_instruction(
                 index as u64,
@@ -37,6 +36,9 @@ pub fn get_processed_sibling_instruction(index: usize) -> Option<ProcessedSiblin
                 sibling.data.as_mut_ptr() as *mut _,
                 sibling.accounts.as_mut_ptr() as *mut _,
             ) {
+                sibling.data.set_len(sibling.meta[0] as usize);
+                sibling.accounts.set_len(sibling.meta[1] as usize);
+
                 Some(sibling)
             } else {
                 None
@@ -53,15 +55,8 @@ pub fn get_processed_sibling_instruction(index: usize) -> Option<ProcessedSiblin
 
 /// The maximum size of a transaction, which serves as the maximum size of
 /// instruction data.
+#[cfg(target_os = "solana")]
 const MAX_INSTRUCTION_DATA: usize = 1232;
-
-/// Representation of a uninitialized byte.
-#[cfg(target_os = "solana")]
-const UNINIT_BYTE: MaybeUninit<u8> = MaybeUninit::uninit();
-
-/// Representation of an uninitialized `ProcessedAccount`.
-#[cfg(target_os = "solana")]
-const UNINIT_PROCESSED_ACCOUNT: MaybeUninit<ProcessedAccount> = MaybeUninit::uninit();
 
 /// Representation of a sibling instruction.
 #[repr(C)]
@@ -69,53 +64,43 @@ pub struct ProcessedSiblingInstruction {
     /// Meta information about the sibling instruction:
     ///   1. `data_len`: length of the instruction data.
     ///   2. `accounts_len`: number of AccountMeta structures.
-    meta: [u64; 2],
+    pub(crate) meta: [u64; 2],
 
     /// Instruction data of the sibling instruction.
     ///
     /// The value of this field is initialized by the syscall.
-    data: [MaybeUninit<u8>; MAX_INSTRUCTION_DATA],
+    pub(crate) data: Vec<u8>,
 
     /// Accounts of the sibling instruction.
     ///
     /// The value of this field is initialized by the syscall.
-    accounts: [MaybeUninit<ProcessedAccount>; MAX_INSTRUCTION_ACCOUNTS],
+    pub(crate) accounts: Vec<ProcessedAccount>,
 
     /// Program that processed the instruction.
     ///
     /// The value of this field is initialized by the syscall.
-    program_id: MaybeUninit<Address>,
+    pub(crate) program_id: MaybeUninit<Address>,
 }
 
 impl ProcessedSiblingInstruction {
     #[cfg(target_os = "solana")]
-    unsafe fn new_uninit() -> Self {
+    unsafe fn uninit() -> Self {
         Self {
             meta: [MAX_INSTRUCTION_DATA as u64, MAX_INSTRUCTION_ACCOUNTS as u64],
-            data: [UNINIT_BYTE; MAX_INSTRUCTION_DATA],
-            accounts: [UNINIT_PROCESSED_ACCOUNT; MAX_INSTRUCTION_ACCOUNTS],
+            data: Vec::with_capacity(MAX_INSTRUCTION_DATA),
+            accounts: Vec::with_capacity(MAX_INSTRUCTION_ACCOUNTS),
             program_id: MaybeUninit::uninit(),
         }
     }
 
     /// Returns the list of processed accounts.
     pub fn accounts(&self) -> &[ProcessedAccount] {
-        // SAFETY: Account length is guaranteed to be less than or equal to
-        // `MAX_INSTRUCTION_ACCOUNTS`.
-        unsafe {
-            let len = *self.meta.get_unchecked(1) as usize;
-            from_raw_parts(self.accounts.get_unchecked(..len).as_ptr() as _, len)
-        }
+        &self.accounts
     }
 
     /// Returns the instruction data.
     pub fn instruction_data(&self) -> &[u8] {
-        // SAFETY: Instruction data length is guaranteed to be less than
-        // `MAX_INSTRUCTION_DATA`.
-        unsafe {
-            let len = *self.meta.get_unchecked(0) as usize;
-            from_raw_parts(self.data.get_unchecked(..len).as_ptr() as _, len)
-        }
+        &self.data
     }
 
     /// Returns the address of the program that executed the instruction.
@@ -154,5 +139,5 @@ pub fn get_stack_height() -> usize {
     }
 
     #[cfg(not(target_os = "solana"))]
-    panic!("get_stack_height is only available on target `solana`")
+    0
 }
