@@ -4076,7 +4076,7 @@ version = "2.2.1"
 
 [[package]]
 name = "solana-vote-interface"
-version = "2.2.3"
+version = "2.2.4"
 dependencies = [
  "arbitrary",
  "bincode",
