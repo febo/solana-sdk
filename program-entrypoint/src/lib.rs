@@ -18,10 +18,12 @@ use {
         slice::{from_raw_parts, from_raw_parts_mut},
     },
 };
-// need to re-export msg for custom_heap_default macro
+// need to re-export msg for custom_heap_default macro, `AccountInfo` and `Pubkey` for
+// entrypoint_no_alloc macro
 pub use {
+    solana_account_info::AccountInfo as __AccountInfo,
     solana_account_info::MAX_PERMITTED_DATA_INCREASE, solana_msg::msg as __msg,
-    solana_program_error::ProgramResult,
+    solana_program_error::ProgramResult, solana_pubkey::Pubkey as __Pubkey,
 };
 
 /// User implemented function to process an instruction
@@ -167,18 +169,23 @@ macro_rules! entrypoint_no_alloc {
             // and the only way to do it is through a `const` expression, and
             // we don't expect to mutate the internals of this `const` type.
             #[allow(clippy::declare_interior_mutable_const)]
-            const UNINIT_ACCOUNT_INFO: MaybeUninit<AccountInfo> =
-                MaybeUninit::<AccountInfo>::uninit();
+            const UNINIT_ACCOUNT_INFO: MaybeUninit<$crate::__AccountInfo> =
+                MaybeUninit::<$crate::__AccountInfo>::uninit();
             const MAX_ACCOUNT_INFOS: usize = 64;
             let mut accounts = [UNINIT_ACCOUNT_INFO; MAX_ACCOUNT_INFOS];
             let (program_id, num_accounts, instruction_data) =
                 unsafe { $crate::deserialize_into(input, &mut accounts) };
             // Use `slice_assume_init_ref` once it's stabilized
-            let accounts = &*(&accounts[..num_accounts] as *const [MaybeUninit<AccountInfo<'_>>]
-                as *const [AccountInfo<'_>]);
+            let accounts = &*(&accounts[..num_accounts]
+                as *const [MaybeUninit<$crate::__AccountInfo<'_>>]
+                as *const [$crate::__AccountInfo<'_>]);
 
             #[inline(never)]
-            fn call_program(program_id: &Pubkey, accounts: &[AccountInfo], data: &[u8]) -> u64 {
+            fn call_program(
+                program_id: &$crate::__Pubkey,
+                accounts: &[$crate::__AccountInfo],
+                data: &[u8],
+            ) -> u64 {
                 match $process_instruction(program_id, accounts, data) {
                     Ok(()) => $crate::SUCCESS,
                     Err(error) => error.into(),
