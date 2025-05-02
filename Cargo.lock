@@ -2737,7 +2737,7 @@ dependencies = [
 
 [[package]]
 name = "solana-compute-budget-interface"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "borsh 1.5.5",
  "serde",
