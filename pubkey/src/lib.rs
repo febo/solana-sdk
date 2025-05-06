@@ -112,7 +112,8 @@ impl fmt::Display for PubkeyError {
     }
 }
 
-impl<T> DecodeError<T> for PubkeyError {
+#[allow(deprecated)]
+impl<T> solana_decode_error::DecodeError<T> for PubkeyError {
     fn type_of() -> &'static str {
         "PubkeyError"
     }
@@ -372,7 +373,8 @@ impl From<Infallible> for ParsePubkeyError {
     }
 }
 
-impl<T> DecodeError<T> for ParsePubkeyError {
+#[allow(deprecated)]
+impl<T> solana_decode_error::DecodeError<T> for ParsePubkeyError {
     fn type_of() -> &'static str {
         "ParsePubkeyError"
     }
