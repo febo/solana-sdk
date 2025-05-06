@@ -3242,7 +3242,7 @@ dependencies = [
 
 [[package]]
 name = "solana-native-token"
-version = "2.2.1"
+version = "2.2.2"
 
 [[package]]
 name = "solana-nonce"
