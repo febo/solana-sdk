@@ -3081,7 +3081,7 @@ dependencies = [
 
 [[package]]
 name = "solana-instructions-sysvar"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "bitflags 2.8.0",
  "qualifier_attr",
