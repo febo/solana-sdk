@@ -2775,7 +2775,7 @@ dependencies = [
 
 [[package]]
 name = "solana-decode-error"
-version = "2.2.1"
+version = "2.3.0"
 dependencies = [
  "num-derive",
  "num-traits",
