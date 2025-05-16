@@ -3584,7 +3584,7 @@ dependencies = [
 
 [[package]]
 name = "solana-reserved-account-keys"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "lazy_static",
  "solana-feature-set",
