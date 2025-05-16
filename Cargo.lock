@@ -3343,7 +3343,7 @@ dependencies = [
 
 [[package]]
 name = "solana-precompiles"
-version = "2.2.1"
+version = "2.2.2"
 dependencies = [
  "lazy_static",
  "solana-ed25519-program",
