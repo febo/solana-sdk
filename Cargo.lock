@@ -3482,7 +3482,7 @@ source = "git+https://github.com/kevinheavey/solana-sdk.git?branch=program-error
 
 [[package]]
 name = "solana-program-memory"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "solana-define-syscall",
 ]
