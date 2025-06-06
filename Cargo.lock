@@ -3111,7 +3111,7 @@ dependencies = [
 
 [[package]]
 name = "solana-keypair"
-version = "2.2.2"
+version = "2.2.3"
 dependencies = [
  "ed25519-dalek",
  "ed25519-dalek-bip32",
