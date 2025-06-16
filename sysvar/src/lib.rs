@@ -110,6 +110,10 @@ pub mod slot_hashes;
 pub mod slot_history;
 pub mod stake_history;
 
+/// Return value to indicate that the `offset + length` is greater than the length of
+/// the sysvar data.
+const OFFSET_LENGTH_EXCEEDS_SYSVAR: u64 = 1;
+
 #[deprecated(
     since = "2.0.0",
     note = "please use `solana_sdk::reserved_account_keys::ReservedAccountKeys` instead"
@@ -206,7 +210,7 @@ macro_rules! impl_sysvar_get {
 
             match result {
                 $crate::__private::SUCCESS => Ok(var),
-                e => Err(e.into()),
+                _ => Err($crate::__private::ProgramError::UnsupportedSysvar),
             }
         }
     };
@@ -239,7 +243,8 @@ fn get_sysvar(
 
     match result {
         solana_program_entrypoint::SUCCESS => Ok(()),
-        e => Err(e.into()),
+        OFFSET_LENGTH_EXCEEDS_SYSVAR => Err(ProgramError::InvalidArgument),
+        _ => Err(ProgramError::UnsupportedSysvar),
     }
 }
 
