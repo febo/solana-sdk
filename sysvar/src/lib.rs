@@ -252,9 +252,9 @@ fn get_sysvar(
     match result {
         solana_program_entrypoint::SUCCESS => Ok(()),
         OFFSET_LENGTH_EXCEEDS_SYSVAR => Err(ProgramError::InvalidArgument),
-        // An invalid sysvar id and unexpected errors are folded
-        // into `UnsupportedSysvar`.
-        SYSVAR_NOT_FOUND | _ => Err(ProgramError::UnsupportedSysvar),
+        SYSVAR_NOT_FOUND => Err(ProgramError::UnsupportedSysvar),
+        // Unexpected errors are folded into `UnsupportedSysvar`.
+        _ => Err(ProgramError::UnsupportedSysvar),
     }
 }
 
