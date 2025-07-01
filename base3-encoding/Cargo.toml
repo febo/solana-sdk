@@ -1,0 +1,22 @@
+[package]
+name = "solana-base3-encoding"
+description = "Solana Base3 Encoding"
+documentation = "https://docs.rs/solana-base3-encoding"
+version = "0.1.0"
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+
+[features]
+bitvec = ["dep:bitvec"]
+default = []
+
+[dependencies]
+bitvec = { version = "1.0.1", optional = true }
+
+[dev-dependencies]
+
+[lints]
+workspace = true
