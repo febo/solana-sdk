@@ -2815,6 +2815,7 @@ name = "solana-big-mod-exp"
 version = "2.2.1"
 dependencies = [
  "array-bytes",
+ "criterion",
  "num-bigint",
  "num-traits",
  "serde",
