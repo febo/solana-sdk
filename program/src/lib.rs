@@ -217,7 +217,7 @@
 //!
 //!   Users need to import the [`borsh`] crate themselves &mdash; it is not
 //!   re-exported by `solana-program`, though this crate provides several useful
-//!   utilities in its [`borsh` module][borshmod] that are not available in the
+//!   utilities in its [`borsh1` module][borshmod] that are not available in the
 //!   `borsh` library.
 //!
 //!   The [`Instruction::new_with_borsh`] function creates an `Instruction` by
@@ -228,7 +228,7 @@
 //!   [brust]: https://docs.rs/borsh
 //!   [bjs]: https://github.com/near/borsh-js
 //!   [`borsh`]: https://docs.rs/borsh
-//!   [borshmod]: crate::borsh
+//!   [borshmod]: crate::borsh1
 //!   [`Instruction::new_with_borsh`]: instruction::Instruction::new_with_borsh
 //!
 //! - __[Bincode]__, a compact serialization format that implements the [Serde]
@@ -494,12 +494,6 @@ pub mod sysvar;
 pub use solana_big_mod_exp as big_mod_exp;
 #[deprecated(since = "2.2.0", note = "Use `solana-blake3-hasher` crate instead")]
 pub use solana_blake3_hasher as blake3;
-#[cfg(feature = "borsh")]
-#[deprecated(since = "2.1.0", note = "Use `solana-borsh` crate instead")]
-pub use solana_borsh::deprecated as borsh;
-#[cfg(feature = "borsh")]
-#[deprecated(since = "2.1.0", note = "Use `solana-borsh` crate instead")]
-pub use solana_borsh::v0_10 as borsh0_10;
 #[cfg(feature = "borsh")]
 #[deprecated(since = "2.1.0", note = "Use `solana-borsh` crate instead")]
 pub use solana_borsh::v1 as borsh1;
