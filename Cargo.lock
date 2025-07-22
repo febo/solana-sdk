@@ -2741,6 +2741,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-address"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arbitrary",
+ "borsh",
+ "bytemuck",
+ "bytemuck_derive",
+ "curve25519-dalek",
+ "five8",
+ "five8_const",
+ "num-traits",
+ "rand",
+ "serde",
+ "serde_derive",
+ "solana-account-info",
+ "solana-atomic-u64",
+ "solana-cpi",
+ "solana-define-syscall",
+ "solana-example-mocks",
+ "solana-frozen-abi",
+ "solana-frozen-abi-macro",
+ "solana-hash",
+ "solana-instruction",
+ "solana-program-error",
+ "solana-sanitize",
+ "solana-sha256-hasher",
+ "solana-system-interface",
+ "strum",
+ "strum_macros",
+]
+
+[[package]]
 name = "solana-address-lookup-table-interface"
 version = "2.2.2"
 dependencies = [
@@ -3577,35 +3610,7 @@ dependencies = [
 name = "solana-pubkey"
 version = "2.4.0"
 dependencies = [
- "anyhow",
- "arbitrary",
- "borsh",
- "bs58",
- "bytemuck",
- "bytemuck_derive",
- "curve25519-dalek",
- "five8",
- "five8_const",
- "num-traits",
- "rand",
- "serde",
- "serde_derive",
- "solana-account-info",
- "solana-atomic-u64",
- "solana-cpi",
- "solana-define-syscall",
- "solana-example-mocks",
- "solana-frozen-abi",
- "solana-frozen-abi-macro",
- "solana-hash",
- "solana-instruction",
- "solana-program-error",
- "solana-pubkey",
- "solana-sanitize",
- "solana-sha256-hasher",
- "solana-system-interface",
- "strum",
- "strum_macros",
+ "solana-address",
 ]
 
 [[package]]
