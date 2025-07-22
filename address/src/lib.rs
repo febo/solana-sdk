@@ -172,7 +172,7 @@ impl TryFrom<&str> for Address {
 // If target_os = "solana", then this panics so there are no dependencies.
 // When target_os != "solana", this should be opt-in so users
 // don't need the curve25519 dependency.
-#[cfg(feature = "curve25519")]
+#[cfg(any(target_os = "solana", feature = "curve25519"))]
 #[allow(clippy::used_underscore_binding)]
 pub fn bytes_are_curve_point<T: AsRef<[u8]>>(_bytes: T) -> bool {
     #[cfg(not(target_os = "solana"))]
