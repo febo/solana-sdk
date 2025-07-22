@@ -2,7 +2,7 @@ use {
     crate::Address,
     js_sys::{Array, Uint8Array},
     std::{fmt, vec::Vec},
-    wasm_bindgen::{JsCast, JsValue},
+    wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue},
 };
 
 #[cfg(feature = "curve25519")]
