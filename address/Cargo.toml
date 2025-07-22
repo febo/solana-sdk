@@ -9,9 +9,6 @@ homepage = { workspace = true }
 license = { workspace = true }
 edition = { workspace = true }
 
-[lints]
-workspace = true
-
 [features]
 atomic = ["dep:solana-atomic-u64"]
 borsh = ["dep:borsh", "std"]
@@ -20,7 +17,12 @@ curve25519 = ["dep:curve25519-dalek", "error", "sha2"]
 decode = ["dep:five8", "dep:five8_const", "error"]
 dev-context-only-utils = ["dep:arbitrary", "rand"]
 error = ["dep:num-traits", "dep:solana-program-error"]
-frozen-abi = ["dep:solana-frozen-abi", "dep:solana-frozen-abi-macro", "dep:solana-program-error", "std"]
+frozen-abi = [
+    "dep:solana-frozen-abi",
+    "dep:solana-frozen-abi-macro",
+    "dep:solana-program-error",
+    "std",
+]
 rand = ["dep:rand", "atomic", "std"]
 sanitize = ["dep:solana-sanitize"]
 serde = ["dep:serde", "dep:serde_derive"]
@@ -79,3 +81,6 @@ solana-program-error = { workspace = true, features = ["borsh"] }
 solana-system-interface = { workspace = true, features = ["bincode"] }
 strum = { workspace = true }
 strum_macros = { workspace = true }
+
+[lints]
+workspace = true
