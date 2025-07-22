@@ -9,6 +9,11 @@ pub use solana_define_syscall::definitions::{
     sol_create_program_address, sol_log_pubkey, sol_try_find_program_address,
 };
 
+/// Copied from `solana_program::entrypoint::SUCCESS`
+/// to avoid a `solana_program` dependency
+#[cfg(target_os = "solana")]
+const SUCCESS: u64 = 0;
+
 impl Address {
     #[cfg(any(target_os = "solana", feature = "std"))]
     /// Log a `Address` from a program
