@@ -49,7 +49,7 @@ solana-sanitize = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "solana"))'.dependencies]
 curve25519-dalek = { workspace = true, optional = true }
-solana-sha256-hasher = { workspace = true, festures = ["sha2"], optional = true }
+solana-sha256-hasher = { workspace = true, features = ["sha2"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = { workspace = true }

@@ -13,7 +13,7 @@ pub use solana_address::bytes_are_curve_point;
 #[cfg(all(feature = "rand", not(target_os = "solana")))]
 pub use solana_address::new_rand;
 #[cfg(target_os = "solana")]
-pub use solana_address::syscalls::*;
+pub use solana_address::syscalls;
 pub use solana_address::{
     address as pubkey, declare_deprecated_id, declare_id,
     error::{AddressError as PubkeyError, ParseAddressError as ParsePubkeyError},
