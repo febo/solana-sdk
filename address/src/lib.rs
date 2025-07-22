@@ -14,6 +14,8 @@ pub mod error;
 mod hasher;
 #[cfg(any(feature = "curve25519", feature = "syscalls"))]
 mod syscalls;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 
 #[cfg(feature = "error")]
 use crate::error::ParsePubkeyError;
@@ -39,11 +41,6 @@ use std::vec::Vec;
 use {
     borsh::{BorshDeserialize, BorshSchema, BorshSerialize},
     std::string::ToString,
-};
-#[cfg(target_arch = "wasm32")]
-use {
-    js_sys::{Array, Uint8Array},
-    wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue},
 };
 
 /// Number of bytes in a pubkey
