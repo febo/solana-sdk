@@ -32,7 +32,11 @@ use arbitrary::Arbitrary;
 use bytemuck_derive::{Pod, Zeroable};
 #[cfg(feature = "decode")]
 use core::str::FromStr;
-use core::{array, convert::TryFrom};
+use core::{
+    array,
+    convert::TryFrom,
+    hash::{Hash, Hasher},
+};
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "std")]
@@ -113,6 +117,16 @@ impl FromStr for Address {
     }
 }
 
+/// Custom impl of Hash for Address.
+///
+/// This allows us to skip hashing the length of the address
+/// which is always the same anyway.
+impl Hash for Address {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write(self.as_array());
+    }
+}
+
 impl From<&Address> for Address {
     #[inline]
     fn from(value: &Address) -> Self {
@@ -184,10 +198,10 @@ impl Address {
         Address::new_from_array(id_array)
     }
 
-    #[cfg(feature = "rand")]
+    #[cfg(feature = "atomic")]
     /// Create an unique `Address` for tests and benchmarks.
     pub fn new_unique() -> Self {
-        use {core::hash::Hasher, solana_atomic_u64::AtomicU64};
+        use solana_atomic_u64::AtomicU64;
         static I: AtomicU64 = AtomicU64::new(1);
         type T = u32;
         const COUNTER_BYTES: usize = core::mem::size_of::<T>();
@@ -410,8 +424,6 @@ pub fn new_rand() -> Address {
 
 #[cfg(test)]
 mod tests {
-    extern crate std;
-
     use {
         super::*, core::str::from_utf8, num_traits::FromPrimitive, std::string::String,
         strum::IntoEnumIterator,
