@@ -14,6 +14,8 @@ pub mod error;
 mod hasher;
 #[cfg(any(feature = "curve25519", feature = "syscalls"))]
 mod syscalls;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 
 #[cfg(feature = "error")]
 use crate::error::ParsePubkeyError;

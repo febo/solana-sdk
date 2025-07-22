@@ -1,4 +1,9 @@
-#[cfg(all(target_arch = "wasm32", feature = "curve25519"))]
+use {
+    js_sys::{Array, Uint8Array},
+    wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue},
+};
+
+#[cfg(feature = "curve25519")]
 fn js_value_to_seeds_vec(array_of_uint8_arrays: &[JsValue]) -> Result<Vec<Vec<u8>>, JsValue> {
     let vec_vec_u8 = array_of_uint8_arrays
         .iter()
@@ -16,13 +21,11 @@ fn js_value_to_seeds_vec(array_of_uint8_arrays: &[JsValue]) -> Result<Vec<Vec<u8
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 fn display_to_jsvalue<T: fmt::Display>(display: T) -> JsValue {
     std::string::ToString::to_string(&display).into()
 }
 
 #[allow(non_snake_case)]
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl Pubkey {
     /// Create a new Pubkey object
