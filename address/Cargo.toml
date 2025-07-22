@@ -29,6 +29,7 @@ serde = ["dep:serde", "dep:serde_derive"]
 sha2 = ["dep:solana-sha256-hasher", "error"]
 std = ["decode"]
 syscalls = ["dep:solana-define-syscall", "error"]
+wasmbind = ["dep:js-sys", "dep:wasm-bindgen"]
 
 [dependencies]
 arbitrary = { workspace = true, features = ["derive"], optional = true }
@@ -52,8 +53,8 @@ curve25519-dalek = { workspace = true, optional = true }
 solana-sha256-hasher = { workspace = true, features = ["sha2"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-js-sys = { workspace = true }
-wasm-bindgen = { workspace = true }
+js-sys = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "solana")'.dependencies]
 solana-define-syscall = { workspace = true, optional = true }
