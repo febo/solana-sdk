@@ -2,7 +2,7 @@ import { expect } from "chai";
 import {
   solana_program_init,
   AccountMeta,
-  Pubkey,
+  Address,
   Keypair,
   Hash,
   Instruction,
@@ -32,8 +32,8 @@ describe("Transaction", function () {
       ])
     );
 
-    const programId = new Pubkey("11111111111111111111111111111111");
-    const dst = new Pubkey("11111111111111111111111111111112");
+    const programId = new Address("11111111111111111111111111111111");
+    const dst = new Address("11111111111111111111111111111112");
     const instructionData = new Uint8Array([2, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0]);
 
     const recentBlockhash = new Hash(
@@ -43,11 +43,11 @@ describe("Transaction", function () {
     let instructions = [];
     let instruction = new Instruction(programId);
     instruction.setData(instructionData);
-    instruction.addAccount(AccountMeta.newWritable(src.pubkey(), true))
+    instruction.addAccount(AccountMeta.newWritable(src.Address(), true))
     instruction.addAccount(AccountMeta.newWritable(dst, false))
     instructions.push(instruction);
 
-    let transaction = new Transaction(instructions, payer.pubkey());
+    let transaction = new Transaction(instructions, payer.Address());
     transaction.partialSign(payer, recentBlockhash);
     transaction.partialSign(src, recentBlockhash);
     expect(transaction.isSigned()).to.be.true;
