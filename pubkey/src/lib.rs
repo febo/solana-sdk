@@ -15,9 +15,11 @@ pub use solana_address::new_rand;
 #[cfg(target_os = "solana")]
 pub use solana_address::syscalls::*;
 pub use solana_address::{
-    declare_deprecated_id, declare_id,
-    error::{ParsePubkeyError, PubkeyError},
-    pubkey, Pubkey, MAX_SEEDS, MAX_SEED_LEN, PUBKEY_BYTES,
+    address as pubkey, declare_deprecated_id, declare_id,
+    error::{AddressError as PubkeyError, ParseAddressError as ParsePubkeyError},
+    Address as Pubkey, ADDRESS_BYTES as PUBKEY_BYTES, MAX_SEEDS, MAX_SEED_LEN,
 };
 #[cfg(all(feature = "rand", not(target_os = "solana")))]
-pub use solana_address::{PubkeyHasher, PubkeyHasherBuilder};
+pub use solana_address::{
+    AddressHasher as PubkeyHasher, AddressHasherBuilder as PubkeyHasherBuilder,
+};

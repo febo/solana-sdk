@@ -1,17 +1,17 @@
 #[cfg(feature = "curve25519")]
 use crate::bytes_are_curve_point;
 #[cfg(any(target_os = "solana", feature = "curve25519"))]
-use crate::error::PubkeyError;
-use crate::Pubkey;
+use crate::error::AddressError;
+use crate::Address;
 #[cfg(target_os = "solana")]
-/// Syscall definitions used by `solana_pubkey`.
+/// Syscall definitions used by `solana_address`.
 pub use solana_define_syscall::definitions::{
     sol_create_program_address, sol_log_pubkey, sol_try_find_program_address,
 };
 
-impl Pubkey {
+impl Address {
     #[cfg(any(target_os = "solana", feature = "std"))]
-    /// Log a `Pubkey` from a program
+    /// Log a `Address` from a program
     pub fn log(&self) {
         #[cfg(target_os = "solana")]
         unsafe {
@@ -114,7 +114,7 @@ impl Pubkey {
     /// # use solana_account_info::{next_account_info, AccountInfo};
     /// # use solana_program_error::ProgramResult;
     /// # use solana_cpi::invoke_signed;
-    /// # use solana_address::Pubkey;
+    /// # use solana_address::Address;
     /// # use solana_system_interface::instruction::create_account;
     /// // The custom instruction processed by our program. It includes the
     /// // PDA's bump seed, which is derived by the client program. This
@@ -136,7 +136,7 @@ impl Pubkey {
     /// // The entrypoint of the on-chain program, as provided to the
     /// // `entrypoint!` macro.
     /// fn process_instruction(
-    ///     program_id: &Pubkey,
+    ///     program_id: &Address,
     ///     accounts: &[AccountInfo],
     ///     instruction_data: &[u8],
     /// ) -> ProgramResult {
@@ -187,7 +187,7 @@ impl Pubkey {
     /// ```
     /// # use borsh::{BorshSerialize, BorshDeserialize};
     /// # use solana_example_mocks::{solana_sdk, solana_rpc_client};
-    /// # use solana_address::Pubkey;
+    /// # use solana_address::Address;
     /// # use solana_instruction::{AccountMeta, Instruction};
     /// # use solana_hash::Hash;
     /// # use solana_sdk::{
@@ -210,12 +210,12 @@ impl Pubkey {
     /// #
     /// fn create_vault_account(
     ///     client: &RpcClient,
-    ///     program_id: Pubkey,
+    ///     program_id: Address,
     ///     payer: &Keypair,
     /// ) -> Result<()> {
     ///     // Derive the PDA from the payer account, a string representing the unique
     ///     // purpose of the account ("vault"), and the address of our on-chain program.
-    ///     let (vault_pubkey, vault_bump_seed) = Pubkey::find_program_address(
+    ///     let (vault_pubkey, vault_bump_seed) = Address::find_program_address(
     ///         &[b"vault", payer.pubkey().as_ref()],
     ///         &program_id
     ///     );
@@ -258,7 +258,7 @@ impl Pubkey {
     ///
     ///     Ok(())
     /// }
-    /// # let program_id = Pubkey::new_unique();
+    /// # let program_id = Address::new_unique();
     /// # let payer = Keypair::new();
     /// # let client = RpcClient::new(String::new());
     /// #
@@ -271,7 +271,7 @@ impl Pubkey {
     // When target_os != "solana", this should be opt-in so users
     // don't need the curve25519 dependency.
     #[cfg(any(target_os = "solana", feature = "curve25519"))]
-    pub fn find_program_address(seeds: &[&[u8]], program_id: &Pubkey) -> (Pubkey, u8) {
+    pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
         Self::try_find_program_address(seeds, program_id)
             .unwrap_or_else(|| panic!("Unable to find a viable program address bump seed"))
     }
@@ -294,7 +294,10 @@ impl Pubkey {
     // don't need the curve25519 dependency.
     #[cfg(any(target_os = "solana", feature = "curve25519"))]
     #[allow(clippy::same_item_push)]
-    pub fn try_find_program_address(seeds: &[&[u8]], program_id: &Pubkey) -> Option<(Pubkey, u8)> {
+    pub fn try_find_program_address(
+        seeds: &[&[u8]],
+        program_id: &Address,
+    ) -> Option<(Address, u8)> {
         // Perform the calculation inline, calling this from within a program is
         // not supported
         #[cfg(not(target_os = "solana"))]
@@ -302,13 +305,11 @@ impl Pubkey {
             let mut bump_seed = [u8::MAX];
             for _ in 0..u8::MAX {
                 {
-                    use crate::error::PubkeyError;
-
                     let mut seeds_with_bump = seeds.to_vec();
                     seeds_with_bump.push(&bump_seed);
                     match Self::create_program_address(&seeds_with_bump, program_id) {
                         Ok(address) => return Some((address, bump_seed[0])),
-                        Err(PubkeyError::InvalidSeeds) => (),
+                        Err(AddressError::InvalidSeeds) => (),
                         _ => break,
                     }
                 }
@@ -352,12 +353,12 @@ impl Pubkey {
     /// See the documentation for [`find_program_address`] for a full description
     /// of program derived addresses and bump seeds.
     ///
-    /// [`find_program_address`]: Pubkey::find_program_address
+    /// [`find_program_address`]: Address::find_program_address
     ///
     /// # Examples
     ///
     /// Creating a program derived address involves iteratively searching for a
-    /// bump seed for which the derived [`Pubkey`] does not lie on the ed25519
+    /// bump seed for which the derived [`Address`] does not lie on the ed25519
     /// curve. This search process is generally performed off-chain, with the
     /// [`find_program_address`] function, after which the client passes the
     /// bump seed to the program as instruction data.
@@ -369,13 +370,13 @@ impl Pubkey {
     /// The verification is performed by appending to the other seeds one
     /// additional seed slice that contains the single `u8` bump seed, calling
     /// `create_program_address`, checking that the return value is `Ok`, and
-    /// that the returned `Pubkey` has the expected value.
+    /// that the returned `Address` has the expected value.
     ///
     /// ```
-    /// # use solana_address::Pubkey;
-    /// # let program_id = Pubkey::new_unique();
-    /// let (expected_pda, bump_seed) = Pubkey::find_program_address(&[b"vault"], &program_id);
-    /// let actual_pda = Pubkey::create_program_address(&[b"vault", &[bump_seed]], &program_id)?;
+    /// # use solana_address::Address;
+    /// # let program_id = Address::new_unique();
+    /// let (expected_pda, bump_seed) = Address::find_program_address(&[b"vault"], &program_id);
+    /// let actual_pda = Address::create_program_address(&[b"vault", &[bump_seed]], &program_id)?;
     /// assert_eq!(expected_pda, actual_pda);
     /// # Ok::<(), anyhow::Error>(())
     /// ```
@@ -386,18 +387,18 @@ impl Pubkey {
     #[cfg(any(target_os = "solana", feature = "curve25519"))]
     pub fn create_program_address(
         seeds: &[&[u8]],
-        program_id: &Pubkey,
-    ) -> Result<Pubkey, PubkeyError> {
+        program_id: &Address,
+    ) -> Result<Address, AddressError> {
         use crate::MAX_SEEDS;
 
         if seeds.len() > MAX_SEEDS {
-            return Err(PubkeyError::MaxSeedLengthExceeded);
+            return Err(AddressError::MaxSeedLengthExceeded);
         }
         for seed in seeds.iter() {
             use crate::MAX_SEED_LEN;
 
             if seed.len() > MAX_SEED_LEN {
-                return Err(PubkeyError::MaxSeedLengthExceeded);
+                return Err(AddressError::MaxSeedLengthExceeded);
             }
         }
 
@@ -415,10 +416,10 @@ impl Pubkey {
             let hash = hasher.result();
 
             if bytes_are_curve_point(hash) {
-                return Err(PubkeyError::InvalidSeeds);
+                return Err(AddressError::InvalidSeeds);
             }
 
-            Ok(Pubkey::from(hash.to_bytes()))
+            Ok(Address::from(hash.to_bytes()))
         }
         // Call via a system call to perform the calculation
         #[cfg(target_os = "solana")]
