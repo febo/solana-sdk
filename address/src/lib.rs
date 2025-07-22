@@ -13,7 +13,7 @@ pub mod error;
 #[cfg(feature = "rand")]
 mod hasher;
 #[cfg(any(feature = "curve25519", feature = "syscalls"))]
-mod syscalls;
+pub mod syscalls;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
@@ -59,13 +59,8 @@ pub const MAX_SEEDS: usize = 16;
 /// Maximum string length of a base58 encoded address.
 const MAX_BASE58_LEN: usize = 44;
 
-#[cfg(any(target_os = "solana", feature = "sha2", feature = "curve25519"))]
+#[cfg(feature = "sha2")]
 const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
-
-/// Copied from `solana_program::entrypoint::SUCCESS`
-/// to avoid a `solana_program` dependency
-#[cfg(target_os = "solana")]
-const SUCCESS: u64 = 0;
 
 /// The address of a [Solana account][acc].
 ///
