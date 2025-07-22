@@ -3,19 +3,19 @@
 
 use log::Level;
 pub use {
+    solana_address::*,
     solana_hash::*,
     solana_instruction::*,
     solana_keypair::*,
-    solana_pubkey::*,
     solana_transaction::*,
     wasm_bindgen::prelude::{wasm_bindgen, JsValue},
 };
 
+pub mod address;
 pub mod hash;
 pub mod instruction;
 pub mod keypair;
 pub mod message;
-pub mod pubkey;
 pub mod transaction;
 
 /// Initialize Javascript logging and panic handler

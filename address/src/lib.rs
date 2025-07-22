@@ -14,7 +14,7 @@ pub mod error;
 mod hasher;
 #[cfg(any(feature = "curve25519", feature = "syscalls"))]
 pub mod syscalls;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wasmbind"))]
 mod wasm;
 
 #[cfg(feature = "sha2")]
@@ -41,7 +41,7 @@ use core::{
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use std::vec::Vec;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wasmbind"))]
 use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg(feature = "borsh")]
 use {
@@ -202,7 +202,7 @@ impl Address {
         static I: AtomicU64 = AtomicU64::new(1);
         type T = u32;
         const COUNTER_BYTES: usize = core::mem::size_of::<T>();
-        let mut b = [0u8; PUBKEY_BYTES];
+        let mut b = [0u8; ADDRESS_BYTES];
         #[cfg(feature = "std")]
         let mut i = I.fetch_add(1) as T;
         #[cfg(not(feature = "std"))]

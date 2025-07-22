@@ -29,7 +29,7 @@ serde = ["dep:serde", "dep:serde_derive"]
 sha2 = ["dep:solana-sha256-hasher", "error"]
 std = ["decode"]
 syscalls = ["dep:solana-define-syscall", "error"]
-wasmbind = ["dep:js-sys", "dep:wasm-bindgen"]
+wasmbind = ["dep:js-sys", "dep:wasm-bindgen", "std"]
 
 [dependencies]
 arbitrary = { workspace = true, features = ["derive"], optional = true }
