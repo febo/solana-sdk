@@ -1,22 +1,12 @@
 use {
-    crate::{Address, ADDRESS_BYTES},
+    crate::ADDRESS_BYTES,
     core::{
         cell::Cell,
-        hash::{BuildHasher, Hash, Hasher},
+        hash::{BuildHasher, Hasher},
         mem,
     },
     rand::{thread_rng, Rng},
 };
-
-/// Custom impl of Hash for Address.
-///
-/// This allows us to skip hashing the length of the address
-/// which is always the same anyway.
-impl Hash for Address {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write(self.as_array());
-    }
-}
 
 /// A faster, but less collision resistant hasher for addresses.
 ///
