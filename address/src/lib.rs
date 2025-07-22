@@ -14,7 +14,7 @@ pub mod error;
 mod hasher;
 #[cfg(any(feature = "curve25519", feature = "syscalls"))]
 pub mod syscalls;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wasmbind"))]
 mod wasm;
 
 #[cfg(feature = "sha2")]
@@ -24,7 +24,7 @@ use crate::error::ParseAddressError;
 #[cfg(all(feature = "rand", not(target_os = "solana")))]
 pub use crate::hasher::{AddressHasher, AddressHasherBuilder};
 
-#[cfg(any(feature = "std", target_arch = "wasm32"))]
+#[cfg(feature = "std")]
 extern crate std;
 #[cfg(feature = "dev-context-only-utils")]
 use arbitrary::Arbitrary;
@@ -39,9 +39,9 @@ use core::{
 };
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
-#[cfg(any(feature = "std", target_arch = "wasm32"))]
+#[cfg(feature = "std")]
 use std::vec::Vec;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wasmbind"))]
 use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg(feature = "borsh")]
 use {
@@ -76,7 +76,7 @@ const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
 /// [ed25519]: https://ed25519.cr.yp.to/
 /// [pdas]: https://solana.com/docs/core/cpi#program-derived-addresses
 /// [`Keypair`]: https://docs.rs/solana-sdk/latest/solana_sdk/signer/keypair/struct.Keypair.html
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+#[cfg_attr(all(target_arch = "wasm32", feature = "wasmbind"), wasm_bindgen)]
 #[repr(transparent)]
 #[cfg_attr(feature = "frozen-abi", derive(solana_frozen_abi_macro::AbiExample))]
 #[cfg_attr(
@@ -148,7 +148,7 @@ impl TryFrom<&[u8]> for Address {
     }
 }
 
-#[cfg(any(feature = "std", target_arch = "wasm32"))]
+#[cfg(feature = "std")]
 impl TryFrom<Vec<u8>> for Address {
     type Error = Vec<u8>;
 
@@ -204,16 +204,16 @@ impl Address {
         type T = u32;
         const COUNTER_BYTES: usize = core::mem::size_of::<T>();
         let mut b = [0u8; ADDRESS_BYTES];
-        #[cfg(any(feature = "std", target_arch = "wasm32"))]
+        #[cfg(feature = "std")]
         let mut i = I.fetch_add(1) as T;
-        #[cfg(not(any(feature = "std", target_arch = "wasm32")))]
+        #[cfg(not(feature = "std"))]
         let i = I.fetch_add(1) as T;
         // use big endian representation to ensure that recent unique addresses
         // are always greater than less recent unique addresses.
         b[0..COUNTER_BYTES].copy_from_slice(&i.to_be_bytes());
         // fill the rest of the address with pseudorandom numbers to make
         // data statistically similar to real addresses.
-        #[cfg(any(feature = "std", target_arch = "wasm32"))]
+        #[cfg(feature = "std")]
         {
             let mut hash = std::hash::DefaultHasher::new();
             for slice in b[COUNTER_BYTES..].chunks_mut(COUNTER_BYTES) {
@@ -224,7 +224,7 @@ impl Address {
         }
         // if std is not available, just replicate last byte of the counter.
         // this is not as good as a proper hash, but at least it is uniform
-        #[cfg(not(any(feature = "std", target_arch = "wasm32")))]
+        #[cfg(not(feature = "std"))]
         {
             for b in b[COUNTER_BYTES..].iter_mut() {
                 *b = (i & 0xFF) as u8;

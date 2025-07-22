@@ -3819,10 +3819,10 @@ dependencies = [
  "console_log",
  "getrandom 0.1.16",
  "log",
+ "solana-address",
  "solana-hash",
  "solana-instruction",
  "solana-keypair",
- "solana-pubkey",
  "solana-transaction",
  "wasm-bindgen",
 ]
