@@ -1,5 +1,5 @@
 use {
-    crate::{Pubkey, PUBKEY_BYTES},
+    crate::{Address, ADDRESS_BYTES},
     core::{
         cell::Cell,
         hash::{BuildHasher, Hash, Hasher},
@@ -8,29 +8,30 @@ use {
     rand::{thread_rng, Rng},
 };
 
-/// Custom impl of Hash for Pubkey
-/// allows us to skip hashing the length of the pubkey
-/// which is always the same anyway
-impl Hash for Pubkey {
+/// Custom impl of Hash for Address.
+///
+/// This allows us to skip hashing the length of the address
+/// which is always the same anyway.
+impl Hash for Address {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write(self.as_array());
     }
 }
 
-/// A faster, but less collision resistant hasher for pubkeys.
+/// A faster, but less collision resistant hasher for addresses.
 ///
 /// Specialized hasher that uses a random 8 bytes subslice of the
-/// pubkey as the hash value. Should not be used when collisions
+/// address as the hash value. Should not be used when collisions
 /// might be used to mount DOS attacks.
 ///
 /// Using this results in about 4x faster lookups in a typical hashmap.
 #[derive(Default)]
-pub struct PubkeyHasher {
+pub struct AddressHasher {
     offset: usize,
     state: u64,
 }
 
-impl Hasher for PubkeyHasher {
+impl Hasher for AddressHasher {
     #[inline]
     fn finish(&self) -> u64 {
         self.state
@@ -39,10 +40,10 @@ impl Hasher for PubkeyHasher {
     fn write(&mut self, bytes: &[u8]) {
         debug_assert_eq!(
             bytes.len(),
-            PUBKEY_BYTES,
-            "This hasher is intended to be used with pubkeys and nothing else"
+            ADDRESS_BYTES,
+            "This hasher is intended to be used with addresses and nothing else"
         );
-        // This slice/unwrap can never panic since offset is < PUBKEY_BYTES - mem::size_of::<u64>()
+        // This slice/unwrap can never panic since offset is < ADDRESS_BYTES - mem::size_of::<u64>()
         let chunk: &[u8; mem::size_of::<u64>()] = bytes
             [self.offset..self.offset + mem::size_of::<u64>()]
             .try_into()
@@ -59,12 +60,12 @@ impl Hasher for PubkeyHasher {
 ///
 /// Using this results in about 4x faster lookups in a typical hashmap.
 #[derive(Clone)]
-pub struct PubkeyHasherBuilder {
+pub struct AddressHasherBuilder {
     offset: usize,
 }
 
-impl Default for PubkeyHasherBuilder {
-    /// Default construct the PubkeyHasherBuilder.
+impl Default for AddressHasherBuilder {
+    /// Default construct the AddressHasherBuilder.
     ///
     /// The position of the slice is determined initially
     /// through random draw and then by incrementing a thread-local
@@ -74,26 +75,26 @@ impl Default for PubkeyHasherBuilder {
     fn default() -> Self {
         std::thread_local!(static OFFSET: Cell<usize>  = {
             let mut rng = thread_rng();
-            Cell::new(rng.gen_range(0..PUBKEY_BYTES - mem::size_of::<u64>()))
+            Cell::new(rng.gen_range(0..ADDRESS_BYTES - mem::size_of::<u64>()))
         });
 
         let offset = OFFSET.with(|offset| {
             let mut next_offset = offset.get() + 1;
-            if next_offset > PUBKEY_BYTES - mem::size_of::<u64>() {
+            if next_offset > ADDRESS_BYTES - mem::size_of::<u64>() {
                 next_offset = 0;
             }
             offset.set(next_offset);
             next_offset
         });
-        PubkeyHasherBuilder { offset }
+        AddressHasherBuilder { offset }
     }
 }
 
-impl BuildHasher for PubkeyHasherBuilder {
-    type Hasher = PubkeyHasher;
+impl BuildHasher for AddressHasherBuilder {
+    type Hasher = AddressHasher;
     #[inline]
     fn build_hasher(&self) -> Self::Hasher {
-        PubkeyHasher {
+        AddressHasher {
             offset: self.offset,
             state: 0,
         }
@@ -103,14 +104,14 @@ impl BuildHasher for PubkeyHasherBuilder {
 #[cfg(test)]
 mod tests {
     use {
-        super::PubkeyHasherBuilder,
-        crate::Pubkey,
+        super::AddressHasherBuilder,
+        crate::Address,
         core::hash::{BuildHasher, Hasher},
     };
     #[test]
-    fn test_pubkey_hasher_builder() {
-        let key = Pubkey::new_unique();
-        let builder = PubkeyHasherBuilder::default();
+    fn test_address_hasher_builder() {
+        let key = Address::new_unique();
+        let builder = AddressHasherBuilder::default();
         let mut hasher1 = builder.build_hasher();
         let mut hasher2 = builder.build_hasher();
         hasher1.write(key.as_array());
@@ -122,7 +123,7 @@ mod tests {
         );
         // Make sure that when we make new builders we get different slices
         // chosen for hashing
-        let builder2 = PubkeyHasherBuilder::default();
+        let builder2 = AddressHasherBuilder::default();
         for _ in 0..64 {
             let mut hasher3 = builder2.build_hasher();
             hasher3.write(key.as_array());
@@ -136,10 +137,10 @@ mod tests {
     }
 
     #[test]
-    fn test_pubkey_hasher() {
-        let key1 = Pubkey::new_unique();
-        let key2 = Pubkey::new_unique();
-        let builder = PubkeyHasherBuilder::default();
+    fn test_address_hasher() {
+        let key1 = Address::new_unique();
+        let key2 = Address::new_unique();
+        let builder = AddressHasherBuilder::default();
         let mut hasher1 = builder.build_hasher();
         let mut hasher2 = builder.build_hasher();
         hasher1.write(key1.as_array());
