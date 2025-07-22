@@ -2758,6 +2758,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "solana-account-info",
+ "solana-address",
  "solana-atomic-u64",
  "solana-cpi",
  "solana-define-syscall",

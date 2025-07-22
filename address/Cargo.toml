@@ -13,18 +13,19 @@ edition = { workspace = true }
 workspace = true
 
 [features]
+atomic = ["dep:solana-atomic-u64"]
 borsh = ["dep:borsh", "std"]
 bytemuck = ["dep:bytemuck", "dep:bytemuck_derive"]
 curve25519 = ["dep:curve25519-dalek", "sha2"]
-decode = ["dep:five8_const", "error"]
+decode = ["dep:five8", "dep:five8_const", "error"]
 dev-context-only-utils = ["dep:arbitrary", "rand"]
 error = ["dep:num-traits", "dep:solana-program-error"]
 frozen-abi = ["dep:solana-frozen-abi", "dep:solana-frozen-abi-macro", "dep:solana-program-error", "std"]
-rand = ["dep:rand", "dep:solana-atomic-u64"]
+rand = ["atomic", "dep:rand", "std"]
 sanitize = ["dep:solana-sanitize"]
 serde = ["dep:serde", "dep:serde_derive"]
 sha2 = ["dep:solana-sha256-hasher", "solana-sha256-hasher/sha2"]
-std = ["dep:five8", "dep:num-traits", "serde"]
+std = []
 syscalls = ["dep:solana-define-syscall", "dep:solana-program-error"]
 
 [dependencies]
@@ -58,6 +59,17 @@ solana-sha256-hasher = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
+solana-address = { path = ".", features = [
+    "atomic",
+    "borsh",
+    "curve25519",
+    "decode",
+    "dev-context-only-utils",
+    "error",
+    "sanitize",
+    "std",
+    "syscalls"
+] }
 solana-account-info = { path = "../account-info" }
 solana-cpi = { path = "../cpi" }
 solana-example-mocks = { path = "../example-mocks" }
