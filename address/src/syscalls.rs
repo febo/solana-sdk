@@ -28,7 +28,7 @@ impl Address {
     ///
     /// Program derived addresses (PDAs) are account keys that only the program,
     /// `program_id`, has the authority to sign. The address is of the same form
-    /// as a Solana `Pubkey`, except they are ensured to not be on the ed25519
+    /// as a Solana `Address`, except they are ensured to not be on the ed25519
     /// curve and thus have no associated private key. When performing
     /// cross-program invocations the program can "sign" for the key by calling
     /// [`invoke_signed`] and passing the same seeds used to generate the
@@ -69,7 +69,7 @@ impl Address {
     /// re-searching for the bump key by using the [`create_program_address`]
     /// function.
     ///
-    /// [`create_program_address`]: Pubkey::create_program_address
+    /// [`create_program_address`]: Address::create_program_address
     ///
     /// **Warning**: Because of the way the seeds are hashed there is a potential
     /// for program address collisions for the same program id.  The seeds are
@@ -86,12 +86,12 @@ impl Address {
     /// Panics in the statistically improbable event that a bump seed could not be
     /// found. Use [`try_find_program_address`] to handle this case.
     ///
-    /// [`try_find_program_address`]: Pubkey::try_find_program_address
+    /// [`try_find_program_address`]: Address::try_find_program_address
     ///
     /// Panics if any of the following are true:
     ///
-    /// - the number of provided seeds is greater than, _or equal to_,  [`MAX_SEEDS`],
-    /// - any individual seed's length is greater than [`MAX_SEED_LEN`].
+    /// - the number of provided seeds is greater than, _or equal to_,  [`crate::MAX_SEEDS`],
+    /// - any individual seed's length is greater than [`crate::MAX_SEED_LEN`].
     ///
     /// # Examples
     ///
@@ -287,7 +287,7 @@ impl Address {
     ///
     /// See the documentation for [`find_program_address`] for a full description.
     ///
-    /// [`find_program_address`]: Pubkey::find_program_address
+    /// [`find_program_address`]: Address::find_program_address
     // If target_os = "solana", then the function will use
     // syscalls which bring no dependencies.
     // When target_os != "solana", this should be opt-in so users
@@ -332,7 +332,7 @@ impl Address {
                 )
             };
             match result {
-                SUCCESS => Some((Pubkey::from(bytes), bump_seed)),
+                SUCCESS => Some((Address::from(bytes), bump_seed)),
                 _ => None,
             }
         }
@@ -434,7 +434,7 @@ impl Address {
                 )
             };
             match result {
-                SUCCESS => Ok(Pubkey::from(bytes)),
+                SUCCESS => Ok(Address::from(bytes)),
                 _ => Err(result.into()),
             }
         }

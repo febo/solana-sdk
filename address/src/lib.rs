@@ -17,9 +17,9 @@ mod syscalls;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
-#[cfg(any(target_os = "solana", feature = "sha2"))]
+#[cfg(feature = "sha2")]
 use crate::error::AddressError;
-#[cfg(feature = "error")]
+#[cfg(feature = "decode")]
 use crate::error::ParseAddressError;
 #[cfg(all(feature = "rand", not(target_os = "solana")))]
 pub use crate::hasher::{AddressHasher, AddressHasherBuilder};
@@ -41,6 +41,8 @@ use core::{
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use std::vec::Vec;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg(feature = "borsh")]
 use {
     borsh::{BorshDeserialize, BorshSchema, BorshSerialize},
@@ -239,7 +241,7 @@ impl Address {
     // syscalls which bring no dependencies.
     // When target_os != "solana", this should be opt-in so users
     // don't need the sha2 dependency.
-    #[cfg(any(target_os = "solana", feature = "sha2"))]
+    #[cfg(feature = "sha2")]
     pub fn create_with_seed(
         base: &Address,
         seed: &str,
