@@ -43,11 +43,11 @@ describe("Transaction", function () {
     let instructions = [];
     let instruction = new Instruction(programId);
     instruction.setData(instructionData);
-    instruction.addAccount(AccountMeta.newWritable(src.Address(), true))
+    instruction.addAccount(AccountMeta.newWritable(src.pubkey(), true))
     instruction.addAccount(AccountMeta.newWritable(dst, false))
     instructions.push(instruction);
 
-    let transaction = new Transaction(instructions, payer.Address());
+    let transaction = new Transaction(instructions, payer.pubkey());
     transaction.partialSign(payer, recentBlockhash);
     transaction.partialSign(src, recentBlockhash);
     expect(transaction.isSigned()).to.be.true;
