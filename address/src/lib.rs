@@ -17,12 +17,12 @@ mod syscalls;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
-#[cfg(feature = "error")]
-use crate::error::ParsePubkeyError;
 #[cfg(any(target_os = "solana", feature = "sha2"))]
-use crate::error::PubkeyError;
+use crate::error::AddressError;
+#[cfg(feature = "error")]
+use crate::error::ParseAddressError;
 #[cfg(all(feature = "rand", not(target_os = "solana")))]
-pub use crate::hasher::{PubkeyHasher, PubkeyHasherBuilder};
+pub use crate::hasher::{AddressHasher, AddressHasherBuilder};
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -43,14 +43,14 @@ use {
     std::string::ToString,
 };
 
-/// Number of bytes in a pubkey
-pub const PUBKEY_BYTES: usize = 32;
-/// maximum length of derived `Pubkey` seed
+/// Number of bytes in an address.
+pub const ADDRESS_BYTES: usize = 32;
+/// maximum length of derived `Address` seed
 pub const MAX_SEED_LEN: usize = 32;
 /// Maximum number of seeds
 pub const MAX_SEEDS: usize = 16;
 #[cfg(feature = "decode")]
-/// Maximum string length of a base58 encoded pubkey
+/// Maximum string length of a base58 encoded address.
 const MAX_BASE58_LEN: usize = 44;
 
 #[cfg(any(target_os = "solana", feature = "sha2", feature = "curve25519"))]
@@ -87,69 +87,69 @@ const SUCCESS: u64 = 0;
 #[cfg_attr(feature = "bytemuck", derive(Pod, Zeroable))]
 #[derive(Clone, Copy, Default, Eq, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "dev-context-only-utils", derive(Arbitrary))]
-pub struct Pubkey(pub(crate) [u8; 32]);
+pub struct Address(pub(crate) [u8; 32]);
 
 #[cfg(feature = "sanitize")]
-impl solana_sanitize::Sanitize for Pubkey {}
+impl solana_sanitize::Sanitize for Address {}
 
 #[cfg(feature = "decode")]
-impl FromStr for Pubkey {
-    type Err = ParsePubkeyError;
+impl FromStr for Address {
+    type Err = ParseAddressError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use five8::DecodeError;
         if s.len() > MAX_BASE58_LEN {
-            return Err(ParsePubkeyError::WrongSize);
+            return Err(ParseAddressError::WrongSize);
         }
-        let mut bytes = [0; PUBKEY_BYTES];
+        let mut bytes = [0; ADDRESS_BYTES];
         five8::decode_32(s, &mut bytes).map_err(|e| match e {
-            DecodeError::InvalidChar(_) => ParsePubkeyError::Invalid,
+            DecodeError::InvalidChar(_) => ParseAddressError::Invalid,
             DecodeError::TooLong
             | DecodeError::TooShort
             | DecodeError::LargestTermTooHigh
-            | DecodeError::OutputTooLong => ParsePubkeyError::WrongSize,
+            | DecodeError::OutputTooLong => ParseAddressError::WrongSize,
         })?;
-        Ok(Pubkey(bytes))
+        Ok(Address(bytes))
     }
 }
 
-impl From<&Pubkey> for Pubkey {
+impl From<&Address> for Address {
     #[inline]
-    fn from(value: &Pubkey) -> Self {
+    fn from(value: &Address) -> Self {
         *value
     }
 }
 
-impl From<[u8; 32]> for Pubkey {
+impl From<[u8; 32]> for Address {
     #[inline]
     fn from(from: [u8; 32]) -> Self {
         Self(from)
     }
 }
 
-impl TryFrom<&[u8]> for Pubkey {
+impl TryFrom<&[u8]> for Address {
     type Error = array::TryFromSliceError;
 
     #[inline]
-    fn try_from(pubkey: &[u8]) -> Result<Self, Self::Error> {
-        <[u8; 32]>::try_from(pubkey).map(Self::from)
+    fn try_from(address: &[u8]) -> Result<Self, Self::Error> {
+        <[u8; 32]>::try_from(address).map(Self::from)
     }
 }
 
 #[cfg(feature = "std")]
-impl TryFrom<Vec<u8>> for Pubkey {
+impl TryFrom<Vec<u8>> for Address {
     type Error = Vec<u8>;
 
     #[inline]
-    fn try_from(pubkey: Vec<u8>) -> Result<Self, Self::Error> {
-        <[u8; 32]>::try_from(pubkey).map(Self::from)
+    fn try_from(address: Vec<u8>) -> Result<Self, Self::Error> {
+        <[u8; 32]>::try_from(address).map(Self::from)
     }
 }
 #[cfg(feature = "decode")]
-impl TryFrom<&str> for Pubkey {
-    type Error = ParsePubkeyError;
+impl TryFrom<&str> for Address {
+    type Error = ParseAddressError;
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Pubkey::from_str(s)
+        Address::from_str(s)
     }
 }
 
@@ -172,20 +172,20 @@ pub fn bytes_are_curve_point<T: AsRef<[u8]>>(_bytes: T) -> bool {
     unimplemented!();
 }
 
-impl Pubkey {
-    pub const fn new_from_array(pubkey_array: [u8; 32]) -> Self {
-        Self(pubkey_array)
+impl Address {
+    pub const fn new_from_array(address_array: [u8; 32]) -> Self {
+        Self(address_array)
     }
 
     #[cfg(feature = "decode")]
-    /// Decode a string into a Pubkey, usable in a const context
+    /// Decode a string into an `Address`, usable in a const context
     pub const fn from_str_const(s: &str) -> Self {
         let id_array = five8_const::decode_32_const(s);
-        Pubkey::new_from_array(id_array)
+        Address::new_from_array(id_array)
     }
 
     #[cfg(feature = "rand")]
-    /// unique Pubkey for tests and benchmarks.
+    /// Create an unique `Address` for tests and benchmarks.
     pub fn new_unique() -> Self {
         use {core::hash::Hasher, solana_atomic_u64::AtomicU64};
         static I: AtomicU64 = AtomicU64::new(1);
@@ -196,11 +196,11 @@ impl Pubkey {
         let mut i = I.fetch_add(1) as T;
         #[cfg(not(feature = "std"))]
         let i = I.fetch_add(1) as T;
-        // use big endian representation to ensure that recent unique pubkeys
-        // are always greater than less recent unique pubkeys.
+        // use big endian representation to ensure that recent unique addresses
+        // are always greater than less recent unique addresses.
         b[0..COUNTER_BYTES].copy_from_slice(&i.to_be_bytes());
-        // fill the rest of the pubkey with pseudorandom numbers to make
-        // data statistically similar to real pubkeys.
+        // fill the rest of the address with pseudorandom numbers to make
+        // data statistically similar to real addresses.
         #[cfg(feature = "std")]
         {
             let mut hash = std::hash::DefaultHasher::new();
@@ -227,30 +227,30 @@ impl Pubkey {
     // don't need the sha2 dependency.
     #[cfg(any(target_os = "solana", feature = "sha2"))]
     pub fn create_with_seed(
-        base: &Pubkey,
+        base: &Address,
         seed: &str,
-        owner: &Pubkey,
-    ) -> Result<Pubkey, PubkeyError> {
+        owner: &Address,
+    ) -> Result<Address, AddressError> {
         if seed.len() > MAX_SEED_LEN {
-            return Err(PubkeyError::MaxSeedLengthExceeded);
+            return Err(AddressError::MaxSeedLengthExceeded);
         }
 
         let owner = owner.as_ref();
         if owner.len() >= PDA_MARKER.len() {
             let slice = &owner[owner.len() - PDA_MARKER.len()..];
             if slice == PDA_MARKER {
-                return Err(PubkeyError::IllegalOwner);
+                return Err(AddressError::IllegalOwner);
             }
         }
         let hash = solana_sha256_hasher::hashv(&[base.as_ref(), seed.as_ref(), owner]);
-        Ok(Pubkey::from(hash.to_bytes()))
+        Ok(Address::from(hash.to_bytes()))
     }
 
     pub const fn to_bytes(self) -> [u8; 32] {
         self.0
     }
 
-    /// Return a reference to the `Pubkey`'s byte array.
+    /// Return a reference to the `Address`'s byte array.
     #[inline(always)]
     pub const fn as_array(&self) -> &[u8; 32] {
         &self.0
@@ -265,20 +265,20 @@ impl Pubkey {
     }
 }
 
-impl AsRef<[u8]> for Pubkey {
+impl AsRef<[u8]> for Address {
     fn as_ref(&self) -> &[u8] {
         &self.0[..]
     }
 }
 
-impl AsMut<[u8]> for Pubkey {
+impl AsMut<[u8]> for Address {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0[..]
     }
 }
 
 #[cfg(feature = "decode")]
-fn write_as_base58(f: &mut core::fmt::Formatter, p: &Pubkey) -> core::fmt::Result {
+fn write_as_base58(f: &mut core::fmt::Formatter, p: &Address) -> core::fmt::Result {
     let mut out = [0u8; MAX_BASE58_LEN];
     let len = five8::encode_32(&p.0, &mut out) as usize;
     // any sequence of base58 chars is valid utf8
@@ -287,14 +287,14 @@ fn write_as_base58(f: &mut core::fmt::Formatter, p: &Pubkey) -> core::fmt::Resul
 }
 
 #[cfg(feature = "decode")]
-impl core::fmt::Debug for Pubkey {
+impl core::fmt::Debug for Address {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write_as_base58(f, self)
     }
 }
 
 #[cfg(feature = "decode")]
-impl core::fmt::Display for Pubkey {
+impl core::fmt::Display for Address {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write_as_base58(f, self)
     }
@@ -311,7 +311,7 @@ impl core::fmt::Display for Pubkey {
 /// # // wrapper is used so that the macro invocation occurs in the item position
 /// # // rather than in the statement position which isn't allowed.
 /// use std::str::FromStr;
-/// use solana_address::{declare_id, Pubkey};
+/// use solana_address::{declare_id, Address};
 ///
 /// # mod item_wrapper {
 /// #   use solana_address::declare_id;
@@ -319,24 +319,24 @@ impl core::fmt::Display for Pubkey {
 /// # }
 /// # use item_wrapper::id;
 ///
-/// let my_id = Pubkey::from_str("My11111111111111111111111111111111111111111").unwrap();
+/// let my_id = Address::from_str("My11111111111111111111111111111111111111111").unwrap();
 /// assert_eq!(id(), my_id);
 /// ```
 #[macro_export]
 macro_rules! declare_id {
     ($address:expr) => {
         /// The const program ID.
-        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($address);
+        pub const ID: $crate::Address = $crate::Address::from_str_const($address);
 
-        /// Returns `true` if given pubkey is the program ID.
+        /// Returns `true` if given address is the program ID.
         // TODO make this const once `derive_const` makes it out of nightly
-        // and we can `derive_const(PartialEq)` on `Pubkey`.
-        pub fn check_id(id: &$crate::Pubkey) -> bool {
+        // and we can `derive_const(PartialEq)` on `Address`.
+        pub fn check_id(id: &$crate::Address) -> bool {
             id == &ID
         }
 
         /// Returns the program ID.
-        pub const fn id() -> $crate::Pubkey {
+        pub const fn id() -> $crate::Address {
             ID
         }
 
@@ -354,19 +354,19 @@ macro_rules! declare_id {
 macro_rules! declare_deprecated_id {
     ($address:expr) => {
         /// The const program ID.
-        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($address);
+        pub const ID: $crate::Address = $crate::Address::from_str_const($address);
 
-        /// Returns `true` if given pubkey is the program ID.
+        /// Returns `true` if given address is the program ID.
         // TODO make this const once `derive_const` makes it out of nightly
-        // and we can `derive_const(PartialEq)` on `Pubkey`.
+        // and we can `derive_const(PartialEq)` on `Address`.
         #[deprecated()]
-        pub fn check_id(id: &$crate::Pubkey) -> bool {
+        pub fn check_id(id: &$crate::Address) -> bool {
             id == &ID
         }
 
         /// Returns the program ID.
         #[deprecated()]
-        pub const fn id() -> $crate::Pubkey {
+        pub const fn id() -> $crate::Address {
             ID
         }
 
@@ -380,32 +380,32 @@ macro_rules! declare_deprecated_id {
 }
 
 #[cfg(feature = "decode")]
-/// Convenience macro to define a static public key.
+/// Convenience macro to define a static `Address` value.
 ///
-/// Input: a single literal base58 string representation of a Pubkey.
+/// Input: a single literal base58 string representation of an `Address`.
 ///
 /// # Example
 ///
 /// ```
 /// use std::str::FromStr;
-/// use solana_address::{pubkey, Pubkey};
+/// use solana_address::{address, Address};
 ///
-/// static ID: Pubkey = pubkey!("My11111111111111111111111111111111111111111");
+/// static ID: Address = address!("My11111111111111111111111111111111111111111");
 ///
-/// let my_id = Pubkey::from_str("My11111111111111111111111111111111111111111").unwrap();
+/// let my_id = Address::from_str("My11111111111111111111111111111111111111111").unwrap();
 /// assert_eq!(ID, my_id);
 /// ```
 #[macro_export]
-macro_rules! pubkey {
+macro_rules! address {
     ($input:literal) => {
-        $crate::Pubkey::from_str_const($input)
+        $crate::Address::from_str_const($input)
     };
 }
 
-/// New random Pubkey for tests and benchmarks.
+/// New random `Address` for tests and benchmarks.
 #[cfg(all(feature = "rand", not(target_os = "solana")))]
-pub fn new_rand() -> Pubkey {
-    Pubkey::from(rand::random::<[u8; PUBKEY_BYTES]>())
+pub fn new_rand() -> Address {
+    Address::from(rand::random::<[u8; ADDRESS_BYTES]>())
 }
 
 #[cfg(test)]
@@ -425,98 +425,101 @@ mod tests {
 
     #[test]
     fn test_new_unique() {
-        assert!(Pubkey::new_unique() != Pubkey::new_unique());
+        assert!(Address::new_unique() != Address::new_unique());
     }
 
     #[test]
     fn pubkey_fromstr() {
-        let pubkey = Pubkey::new_unique();
+        let pubkey = Address::new_unique();
         let mut pubkey_base58_str = encode_address(&pubkey.0);
 
-        assert_eq!(pubkey_base58_str.parse::<Pubkey>(), Ok(pubkey));
+        assert_eq!(pubkey_base58_str.parse::<Address>(), Ok(pubkey));
 
         pubkey_base58_str.push_str(&encode_address(&pubkey.0));
         assert_eq!(
-            pubkey_base58_str.parse::<Pubkey>(),
-            Err(ParsePubkeyError::WrongSize)
+            pubkey_base58_str.parse::<Address>(),
+            Err(ParseAddressError::WrongSize)
         );
 
         pubkey_base58_str.truncate(pubkey_base58_str.len() / 2);
-        assert_eq!(pubkey_base58_str.parse::<Pubkey>(), Ok(pubkey));
+        assert_eq!(pubkey_base58_str.parse::<Address>(), Ok(pubkey));
 
         pubkey_base58_str.truncate(pubkey_base58_str.len() / 2);
         assert_eq!(
-            pubkey_base58_str.parse::<Pubkey>(),
-            Err(ParsePubkeyError::WrongSize)
+            pubkey_base58_str.parse::<Address>(),
+            Err(ParseAddressError::WrongSize)
         );
 
         let mut pubkey_base58_str = encode_address(&pubkey.0);
-        assert_eq!(pubkey_base58_str.parse::<Pubkey>(), Ok(pubkey));
+        assert_eq!(pubkey_base58_str.parse::<Address>(), Ok(pubkey));
 
         // throw some non-base58 stuff in there
         pubkey_base58_str.replace_range(..1, "I");
         assert_eq!(
-            pubkey_base58_str.parse::<Pubkey>(),
-            Err(ParsePubkeyError::Invalid)
+            pubkey_base58_str.parse::<Address>(),
+            Err(ParseAddressError::Invalid)
         );
 
         // too long input string
         // longest valid encoding
-        let mut too_long = encode_address(&[255u8; PUBKEY_BYTES]);
+        let mut too_long = encode_address(&[255u8; ADDRESS_BYTES]);
         // and one to grow on
         too_long.push('1');
-        assert_eq!(too_long.parse::<Pubkey>(), Err(ParsePubkeyError::WrongSize));
+        assert_eq!(
+            too_long.parse::<Address>(),
+            Err(ParseAddressError::WrongSize)
+        );
     }
 
     #[test]
     fn test_create_with_seed() {
         assert!(
-            Pubkey::create_with_seed(&Pubkey::new_unique(), "☉", &Pubkey::new_unique()).is_ok()
+            Address::create_with_seed(&Address::new_unique(), "☉", &Address::new_unique()).is_ok()
         );
         assert_eq!(
-            Pubkey::create_with_seed(
-                &Pubkey::new_unique(),
+            Address::create_with_seed(
+                &Address::new_unique(),
                 from_utf8(&[127; MAX_SEED_LEN + 1]).unwrap(),
-                &Pubkey::new_unique()
+                &Address::new_unique()
             ),
-            Err(PubkeyError::MaxSeedLengthExceeded)
+            Err(AddressError::MaxSeedLengthExceeded)
         );
-        assert!(Pubkey::create_with_seed(
-            &Pubkey::new_unique(),
+        assert!(Address::create_with_seed(
+            &Address::new_unique(),
             "\
              \u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\
              ",
-            &Pubkey::new_unique()
+            &Address::new_unique()
         )
         .is_ok());
         // utf-8 abuse ;)
         assert_eq!(
-            Pubkey::create_with_seed(
-                &Pubkey::new_unique(),
+            Address::create_with_seed(
+                &Address::new_unique(),
                 "\
                  x\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\u{10FFFF}\
                  ",
-                &Pubkey::new_unique()
+                &Address::new_unique()
             ),
-            Err(PubkeyError::MaxSeedLengthExceeded)
+            Err(AddressError::MaxSeedLengthExceeded)
         );
 
-        assert!(Pubkey::create_with_seed(
-            &Pubkey::new_unique(),
+        assert!(Address::create_with_seed(
+            &Address::new_unique(),
             from_utf8(&[0; MAX_SEED_LEN]).unwrap(),
-            &Pubkey::new_unique(),
+            &Address::new_unique(),
         )
         .is_ok());
 
         assert!(
-            Pubkey::create_with_seed(&Pubkey::new_unique(), "", &Pubkey::new_unique(),).is_ok()
+            Address::create_with_seed(&Address::new_unique(), "", &Address::new_unique(),).is_ok()
         );
 
         assert_eq!(
-            Pubkey::create_with_seed(
-                &Pubkey::default(),
+            Address::create_with_seed(
+                &Address::default(),
                 "limber chicken: 4/45",
-                &Pubkey::default(),
+                &Address::default(),
             ),
             Ok("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq"
                 .parse()
@@ -565,50 +568,50 @@ mod tests {
             &[15],
             &[16],
         ];
-        let program_id = Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").unwrap();
-        let public_key = Pubkey::from_str("SeedPubey1111111111111111111111111111111111").unwrap();
+        let program_id = Address::from_str("BPFLoaderUpgradeab1e11111111111111111111111").unwrap();
+        let public_key = Address::from_str("SeedPubey1111111111111111111111111111111111").unwrap();
 
         assert_eq!(
-            Pubkey::create_program_address(&[exceeded_seed], &program_id),
-            Err(PubkeyError::MaxSeedLengthExceeded)
+            Address::create_program_address(&[exceeded_seed], &program_id),
+            Err(AddressError::MaxSeedLengthExceeded)
         );
         assert_eq!(
-            Pubkey::create_program_address(&[b"short_seed", exceeded_seed], &program_id),
-            Err(PubkeyError::MaxSeedLengthExceeded)
+            Address::create_program_address(&[b"short_seed", exceeded_seed], &program_id),
+            Err(AddressError::MaxSeedLengthExceeded)
         );
-        assert!(Pubkey::create_program_address(&[max_seed], &program_id).is_ok());
+        assert!(Address::create_program_address(&[max_seed], &program_id).is_ok());
         assert_eq!(
-            Pubkey::create_program_address(exceeded_seeds, &program_id),
-            Err(PubkeyError::MaxSeedLengthExceeded)
+            Address::create_program_address(exceeded_seeds, &program_id),
+            Err(AddressError::MaxSeedLengthExceeded)
         );
-        assert!(Pubkey::create_program_address(max_seeds, &program_id).is_ok());
+        assert!(Address::create_program_address(max_seeds, &program_id).is_ok());
         assert_eq!(
-            Pubkey::create_program_address(&[b"", &[1]], &program_id),
+            Address::create_program_address(&[b"", &[1]], &program_id),
             Ok("BwqrghZA2htAcqq8dzP1WDAhTXYTYWj7CHxF5j7TDBAe"
                 .parse()
                 .unwrap())
         );
         assert_eq!(
-            Pubkey::create_program_address(&["☉".as_ref(), &[0]], &program_id),
+            Address::create_program_address(&["☉".as_ref(), &[0]], &program_id),
             Ok("13yWmRpaTR4r5nAktwLqMpRNr28tnVUZw26rTvPSSB19"
                 .parse()
                 .unwrap())
         );
         assert_eq!(
-            Pubkey::create_program_address(&[b"Talking", b"Squirrels"], &program_id),
+            Address::create_program_address(&[b"Talking", b"Squirrels"], &program_id),
             Ok("2fnQrngrQT4SeLcdToJAD96phoEjNL2man2kfRLCASVk"
                 .parse()
                 .unwrap())
         );
         assert_eq!(
-            Pubkey::create_program_address(&[public_key.as_ref(), &[1]], &program_id),
+            Address::create_program_address(&[public_key.as_ref(), &[1]], &program_id),
             Ok("976ymqVnfE32QFe6NfGDctSvVa36LWnvYxhU6G2232YL"
                 .parse()
                 .unwrap())
         );
         assert_ne!(
-            Pubkey::create_program_address(&[b"Talking", b"Squirrels"], &program_id).unwrap(),
-            Pubkey::create_program_address(&[b"Talking"], &program_id).unwrap(),
+            Address::create_program_address(&[b"Talking", b"Squirrels"], &program_id).unwrap(),
+            Address::create_program_address(&[b"Talking"], &program_id).unwrap(),
         );
     }
 
@@ -618,11 +621,11 @@ mod tests {
         // addresses must land off the curve and be unique
         let mut addresses = std::vec![];
         for _ in 0..1_000 {
-            let program_id = Pubkey::new_unique();
+            let program_id = Address::new_unique();
             let bytes1 = rand::random::<[u8; 10]>();
             let bytes2 = rand::random::<[u8; 32]>();
             if let Ok(program_address) =
-                Pubkey::create_program_address(&[&bytes1, &bytes2], &program_id)
+                Address::create_program_address(&[&bytes1, &bytes2], &program_id)
             {
                 assert!(!program_address.is_on_curve());
                 assert!(!addresses.contains(&program_address));
@@ -634,68 +637,68 @@ mod tests {
     #[test]
     fn test_find_program_address() {
         for _ in 0..1_000 {
-            let program_id = Pubkey::new_unique();
+            let program_id = Address::new_unique();
             let (address, bump_seed) =
-                Pubkey::find_program_address(&[b"Lil'", b"Bits"], &program_id);
+                Address::find_program_address(&[b"Lil'", b"Bits"], &program_id);
             assert_eq!(
                 address,
-                Pubkey::create_program_address(&[b"Lil'", b"Bits", &[bump_seed]], &program_id)
+                Address::create_program_address(&[b"Lil'", b"Bits", &[bump_seed]], &program_id)
                     .unwrap()
             );
         }
     }
 
-    fn pubkey_from_seed_by_marker(marker: &[u8]) -> Result<Pubkey, PubkeyError> {
-        let key = Pubkey::new_unique();
-        let owner = Pubkey::default();
+    fn address_from_seed_by_marker(marker: &[u8]) -> Result<Address, AddressError> {
+        let key = Address::new_unique();
+        let owner = Address::default();
 
         let mut to_fake = owner.to_bytes().to_vec();
         to_fake.extend_from_slice(marker);
 
         let seed = from_utf8(&to_fake[..to_fake.len() - 32]).expect("not utf8");
-        let base = &Pubkey::try_from(&to_fake[to_fake.len() - 32..]).unwrap();
+        let base = &Address::try_from(&to_fake[to_fake.len() - 32..]).unwrap();
 
-        Pubkey::create_with_seed(&key, seed, base)
+        Address::create_with_seed(&key, seed, base)
     }
 
     #[test]
     fn test_create_with_seed_rejects_illegal_owner() {
         assert_eq!(
-            pubkey_from_seed_by_marker(PDA_MARKER),
-            Err(PubkeyError::IllegalOwner)
+            address_from_seed_by_marker(PDA_MARKER),
+            Err(AddressError::IllegalOwner)
         );
-        assert!(pubkey_from_seed_by_marker(&PDA_MARKER[1..]).is_ok());
+        assert!(address_from_seed_by_marker(&PDA_MARKER[1..]).is_ok());
     }
 
     #[test]
     fn test_pubkey_error_from_primitive_exhaustive() {
-        for variant in PubkeyError::iter() {
+        for variant in AddressError::iter() {
             let variant_i64 = variant.clone() as i64;
             assert_eq!(
-                PubkeyError::from_repr(variant_i64 as usize),
-                PubkeyError::from_i64(variant_i64)
+                AddressError::from_repr(variant_i64 as usize),
+                AddressError::from_i64(variant_i64)
             );
-            assert_eq!(PubkeyError::from(variant_i64 as u64), variant);
+            assert_eq!(AddressError::from(variant_i64 as u64), variant);
         }
     }
 
     #[test]
     fn test_parse_pubkey_error_from_primitive_exhaustive() {
-        for variant in ParsePubkeyError::iter() {
+        for variant in ParseAddressError::iter() {
             let variant_i64 = variant as i64;
             assert_eq!(
-                ParsePubkeyError::from_repr(variant_i64 as usize),
-                ParsePubkeyError::from_i64(variant_i64)
+                ParseAddressError::from_repr(variant_i64 as usize),
+                ParseAddressError::from_i64(variant_i64)
             );
         }
     }
 
     #[test]
-    fn test_pubkey_macro() {
-        const PK: Pubkey = Pubkey::from_str_const("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq");
-        assert_eq!(pubkey!("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq"), PK);
+    fn test_address_macro() {
+        const PK: Address = Address::from_str_const("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq");
+        assert_eq!(address!("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq"), PK);
         assert_eq!(
-            Pubkey::from_str("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq").unwrap(),
+            Address::from_str("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq").unwrap(),
             PK
         );
     }
@@ -703,7 +706,7 @@ mod tests {
     #[test]
     fn test_as_array() {
         let bytes = [1u8; 32];
-        let key = Pubkey::from(bytes);
+        let key = Address::from(bytes);
         assert_eq!(key.as_array(), &bytes);
         assert_eq!(key.as_array(), &key.to_bytes());
         // Sanity check: ensure the pointer is the same.

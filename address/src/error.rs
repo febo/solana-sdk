@@ -11,20 +11,20 @@ use {
 #[cfg_attr(test, derive(strum_macros::FromRepr, strum_macros::EnumIter))]
 #[cfg_attr(feature = "serde", derive(serde_derive::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PubkeyError {
+pub enum AddressError {
     /// Length of the seed is too long for address generation
     MaxSeedLengthExceeded,
     InvalidSeeds,
     IllegalOwner,
 }
 
-impl ToPrimitive for PubkeyError {
+impl ToPrimitive for AddressError {
     #[inline]
     fn to_i64(&self) -> Option<i64> {
         Some(match *self {
-            PubkeyError::MaxSeedLengthExceeded => PubkeyError::MaxSeedLengthExceeded as i64,
-            PubkeyError::InvalidSeeds => PubkeyError::InvalidSeeds as i64,
-            PubkeyError::IllegalOwner => PubkeyError::IllegalOwner as i64,
+            AddressError::MaxSeedLengthExceeded => AddressError::MaxSeedLengthExceeded as i64,
+            AddressError::InvalidSeeds => AddressError::InvalidSeeds as i64,
+            AddressError::IllegalOwner => AddressError::IllegalOwner as i64,
         })
     }
     #[inline]
@@ -33,15 +33,15 @@ impl ToPrimitive for PubkeyError {
     }
 }
 
-impl FromPrimitive for PubkeyError {
+impl FromPrimitive for AddressError {
     #[inline]
     fn from_i64(n: i64) -> Option<Self> {
-        if n == PubkeyError::MaxSeedLengthExceeded as i64 {
-            Some(PubkeyError::MaxSeedLengthExceeded)
-        } else if n == PubkeyError::InvalidSeeds as i64 {
-            Some(PubkeyError::InvalidSeeds)
-        } else if n == PubkeyError::IllegalOwner as i64 {
-            Some(PubkeyError::IllegalOwner)
+        if n == AddressError::MaxSeedLengthExceeded as i64 {
+            Some(AddressError::MaxSeedLengthExceeded)
+        } else if n == AddressError::InvalidSeeds as i64 {
+            Some(AddressError::InvalidSeeds)
+        } else if n == AddressError::IllegalOwner as i64 {
+            Some(AddressError::IllegalOwner)
         } else {
             None
         }
@@ -53,39 +53,39 @@ impl FromPrimitive for PubkeyError {
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for PubkeyError {}
+impl std::error::Error for AddressError {}
 
-impl fmt::Display for PubkeyError {
+impl fmt::Display for AddressError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PubkeyError::MaxSeedLengthExceeded => {
+            AddressError::MaxSeedLengthExceeded => {
                 f.write_str("Length of the seed is too long for address generation")
             }
-            PubkeyError::InvalidSeeds => {
+            AddressError::InvalidSeeds => {
                 f.write_str("Provided seeds do not result in a valid address")
             }
-            PubkeyError::IllegalOwner => f.write_str("Provided owner is not allowed"),
+            AddressError::IllegalOwner => f.write_str("Provided owner is not allowed"),
         }
     }
 }
 
-impl From<u64> for PubkeyError {
+impl From<u64> for AddressError {
     fn from(error: u64) -> Self {
         match error {
-            0 => PubkeyError::MaxSeedLengthExceeded,
-            1 => PubkeyError::InvalidSeeds,
-            2 => PubkeyError::IllegalOwner,
-            _ => panic!("Unsupported PubkeyError"),
+            0 => AddressError::MaxSeedLengthExceeded,
+            1 => AddressError::InvalidSeeds,
+            2 => AddressError::IllegalOwner,
+            _ => panic!("Unsupported AddressError"),
         }
     }
 }
 
-impl From<PubkeyError> for ProgramError {
-    fn from(error: PubkeyError) -> Self {
+impl From<AddressError> for ProgramError {
+    fn from(error: AddressError) -> Self {
         match error {
-            PubkeyError::MaxSeedLengthExceeded => Self::MaxSeedLengthExceeded,
-            PubkeyError::InvalidSeeds => Self::InvalidSeeds,
-            PubkeyError::IllegalOwner => Self::IllegalOwner,
+            AddressError::MaxSeedLengthExceeded => Self::MaxSeedLengthExceeded,
+            AddressError::InvalidSeeds => Self::InvalidSeeds,
+            AddressError::IllegalOwner => Self::IllegalOwner,
         }
     }
 }
@@ -95,17 +95,17 @@ impl From<PubkeyError> for ProgramError {
 #[cfg_attr(test, derive(strum_macros::FromRepr, strum_macros::EnumIter))]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParsePubkeyError {
+pub enum ParseAddressError {
     WrongSize,
     Invalid,
 }
 
-impl ToPrimitive for ParsePubkeyError {
+impl ToPrimitive for ParseAddressError {
     #[inline]
     fn to_i64(&self) -> Option<i64> {
         Some(match *self {
-            ParsePubkeyError::WrongSize => ParsePubkeyError::WrongSize as i64,
-            ParsePubkeyError::Invalid => ParsePubkeyError::Invalid as i64,
+            ParseAddressError::WrongSize => ParseAddressError::WrongSize as i64,
+            ParseAddressError::Invalid => ParseAddressError::Invalid as i64,
         })
     }
     #[inline]
@@ -114,13 +114,13 @@ impl ToPrimitive for ParsePubkeyError {
     }
 }
 
-impl FromPrimitive for ParsePubkeyError {
+impl FromPrimitive for ParseAddressError {
     #[inline]
     fn from_i64(n: i64) -> Option<Self> {
-        if n == ParsePubkeyError::WrongSize as i64 {
-            Some(ParsePubkeyError::WrongSize)
-        } else if n == ParsePubkeyError::Invalid as i64 {
-            Some(ParsePubkeyError::Invalid)
+        if n == ParseAddressError::WrongSize as i64 {
+            Some(ParseAddressError::WrongSize)
+        } else if n == ParseAddressError::Invalid as i64 {
+            Some(ParseAddressError::Invalid)
         } else {
             None
         }
@@ -132,18 +132,18 @@ impl FromPrimitive for ParsePubkeyError {
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for ParsePubkeyError {}
+impl std::error::Error for ParseAddressError {}
 
-impl fmt::Display for ParsePubkeyError {
+impl fmt::Display for ParseAddressError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ParsePubkeyError::WrongSize => f.write_str("String is the wrong size"),
-            ParsePubkeyError::Invalid => f.write_str("Invalid Base58 string"),
+            ParseAddressError::WrongSize => f.write_str("String is the wrong size"),
+            ParseAddressError::Invalid => f.write_str("Invalid Base58 string"),
         }
     }
 }
 
-impl From<Infallible> for ParsePubkeyError {
+impl From<Infallible> for ParseAddressError {
     fn from(_: Infallible) -> Self {
         unreachable!("Infallible uninhabited");
     }
