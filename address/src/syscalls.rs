@@ -1,4 +1,4 @@
-#[cfg(feature = "curve25519")]
+#[cfg(all(not(target_os = "solana"), feature = "curve25519"))]
 use crate::bytes_are_curve_point;
 #[cfg(any(target_os = "solana", feature = "curve25519"))]
 use crate::error::AddressError;
