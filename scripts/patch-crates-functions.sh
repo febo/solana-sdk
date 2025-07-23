@@ -30,6 +30,7 @@ crate_dirs=(
   epoch-rewards
   epoch-rewards-hasher
   epoch-schedule
+  epoch-stake
   example-mocks
   feature-gate-interface
   fee-calculator
