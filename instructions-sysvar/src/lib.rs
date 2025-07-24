@@ -82,19 +82,29 @@ bitflags! {
     }
 }
 
-// First encode the number of instructions:
-// [0..2 - num_instructions
+// Instructions memory layout
 //
-// Then a table of offsets of where to find them in the data
-//  3..2 * num_instructions table of instruction offsets
+// Header layout:
+//   [0..2]                      num_instructions (u16)
+//   [2..2 + 2*N]                instruction_offsets ([u16; N])
 //
-// Each instruction is then encoded as:
-//   0..2 - num_accounts
-//   2 - meta_byte -> (bit 0 signer, bit 1 is_writable)
-//   3..35 - pubkey - 32 bytes
-//   35..67 - program_id
-//   67..69 - data len - u16
-//   69..data_len - data
+// Each instruction starts at an offset specified in `instruction_offsets`.
+// The layout of each instruction is relative to its start offset.
+//
+// Instruction layout:
+//   [0..2]                      num_accounts (u16)
+//   [2..2 + 33*A]               accounts ([AccountMeta; A])
+//   [2 + 33*A..34 + 33*A]       program_id (Pubkey)
+//   [34 + 33*A..36 + 33*A]      data_len (u16)
+//   [36 + 33*A..]               data (&[u8])
+//
+// AccountMeta layout:
+//   [0..1]                      meta (u8: bit 0: is_signer, bit 1: is_writable)
+//   [1..33]                     pubkey (Pubkey)
+//
+// Where:
+// - N = num_instructions
+// - A = number of accounts in a particular instruction
 #[cfg(not(target_os = "solana"))]
 #[cfg_attr(feature = "dev-context-only-utils", qualifiers(pub))]
 fn serialize_instructions(instructions: &[BorrowedInstruction]) -> Vec<u8> {
