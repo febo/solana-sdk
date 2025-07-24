@@ -58,7 +58,7 @@
 //! # use solana_program_error::{ProgramError, ProgramResult};
 //! # use solana_pubkey::Pubkey;
 //! # use solana_sdk_ids::sysvar::epoch_schedule;
-//! # use solana_sysvar::Sysvar;
+//! # use solana_sysvar::{Sysvar, SysvarSerialize};
 //! fn process_instruction(
 //!     program_id: &Pubkey,
 //!     accounts: &[AccountInfo],
@@ -120,13 +120,16 @@
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 #[cfg(feature = "bincode")]
+use crate::SysvarSerialize;
 use crate::{impl_sysvar_get, Sysvar};
 pub use {
     solana_epoch_schedule::EpochSchedule,
     solana_sdk_ids::sysvar::epoch_schedule::{check_id, id, ID},
 };
 
-#[cfg(feature = "bincode")]
 impl Sysvar for EpochSchedule {
     impl_sysvar_get!(sol_get_epoch_schedule_sysvar);
 }
+
+#[cfg(feature = "bincode")]
+impl SysvarSerialize for EpochSchedule {}

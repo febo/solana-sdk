@@ -55,7 +55,7 @@
 //! ```
 //! # use solana_account_info::{AccountInfo, next_account_info};
 //! # use solana_msg::msg;
-//! # use solana_sysvar::Sysvar;
+//! # use solana_sysvar::{Sysvar, SysvarSerialize};
 //! # use solana_program_error::{ProgramError, ProgramResult};
 //! # use solana_pubkey::Pubkey;
 //! # use solana_rent::Rent;
@@ -122,13 +122,15 @@
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 #[cfg(feature = "bincode")]
+use crate::SysvarSerialize;
 use crate::{impl_sysvar_get, Sysvar};
 pub use {
     solana_rent::Rent,
     solana_sdk_ids::sysvar::rent::{check_id, id, ID},
 };
-
-#[cfg(feature = "bincode")]
 impl Sysvar for Rent {
     impl_sysvar_get!(sol_get_rent_sysvar);
 }
+
+#[cfg(feature = "bincode")]
+impl SysvarSerialize for Rent {}

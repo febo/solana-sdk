@@ -31,13 +31,13 @@
 //!
 //! Since Solana sysvars are accounts, if the `AccountInfo` is provided to the
 //! program, then the program can deserialize the sysvar with
-//! [`Sysvar::from_account_info`] to access its data, as in this example that
+//! [`SysvarSerialize::from_account_info`] to access its data, as in this example that
 //! again logs the [`clock`] sysvar.
 //!
 //! ```
 //! use solana_account_info::{AccountInfo, next_account_info};
 //! use solana_msg::msg;
-//! use solana_sysvar::Sysvar;
+//! use solana_sysvar::{Sysvar, SysvarSerialize};
 //! use solana_program_error::ProgramResult;
 //! use solana_pubkey::Pubkey;
 //!
@@ -83,12 +83,9 @@ pub mod __private {
     pub use solana_define_syscall::definitions;
     pub use {solana_program_entrypoint::SUCCESS, solana_program_error::ProgramError};
 }
-use solana_pubkey::Pubkey;
 #[cfg(feature = "bincode")]
-use {
-    solana_account_info::AccountInfo, solana_program_error::ProgramError,
-    solana_sysvar_id::SysvarId,
-};
+use {solana_account_info::AccountInfo, solana_sysvar_id::SysvarId};
+use {solana_program_error::ProgramError, solana_pubkey::Pubkey};
 
 pub mod clock;
 pub mod epoch_rewards;
@@ -114,10 +111,25 @@ const OFFSET_LENGTH_EXCEEDS_SYSVAR: u64 = 1;
 // Defined in the bpf loader as [`SYSVAR_NOT_FOUND`](https://github.com/anza-xyz/agave/blob/master/programs/bpf_loader/src/syscalls/sysvar.rs#L171).
 const SYSVAR_NOT_FOUND: u64 = 2;
 
+/// Interface for loading a sysvar.
+pub trait Sysvar: Default + Sized {
+    /// Load the sysvar directly from the runtime.
+    ///
+    /// This is the preferred way to load a sysvar. Calling this method does not
+    /// incur any deserialization overhead, and does not require the sysvar
+    /// account to be passed to the program.
+    ///
+    /// Not all sysvars support this method. If not, it returns
+    /// [`ProgramError::UnsupportedSysvar`].
+    fn get() -> Result<Self, ProgramError> {
+        Err(ProgramError::UnsupportedSysvar)
+    }
+}
+
 #[cfg(feature = "bincode")]
 /// A type that holds sysvar data.
-pub trait Sysvar:
-    SysvarId + Default + Sized + serde::Serialize + serde::de::DeserializeOwned
+pub trait SysvarSerialize:
+    Sysvar + SysvarId + serde::Serialize + serde::de::DeserializeOwned
 {
     /// The size in bytes of the sysvar as serialized account data.
     fn size_of() -> usize {
@@ -144,18 +156,6 @@ pub trait Sysvar:
     /// Returns `None` if serialization failed.
     fn to_account_info(&self, account_info: &mut AccountInfo) -> Option<()> {
         bincode::serialize_into(&mut account_info.data.borrow_mut()[..], self).ok()
-    }
-
-    /// Load the sysvar directly from the runtime.
-    ///
-    /// This is the preferred way to load a sysvar. Calling this method does not
-    /// incur any deserialization overhead, and does not require the sysvar
-    /// account to be passed to the program.
-    ///
-    /// Not all sysvars support this method. If not, it returns
-    /// [`ProgramError::UnsupportedSysvar`].
-    fn get() -> Result<Self, ProgramError> {
-        Err(ProgramError::UnsupportedSysvar)
     }
 }
 
@@ -244,6 +244,7 @@ mod tests {
         }
     }
     impl Sysvar for TestSysvar {}
+    impl SysvarSerialize for TestSysvar {}
 
     // NOTE tests that use this mock MUST carry the #[serial] attribute
     struct MockGetSysvarSyscall {

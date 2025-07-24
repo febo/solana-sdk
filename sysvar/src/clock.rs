@@ -57,7 +57,7 @@
 //! # use solana_msg::msg;
 //! # use solana_program_error::{ProgramError, ProgramResult};
 //! # use solana_pubkey::Pubkey;
-//! # use solana_sysvar::Sysvar;
+//! # use solana_sysvar::{Sysvar, SysvarSerialize};
 //! # use solana_sdk_ids::sysvar::clock;
 //! #
 //! fn process_instruction(
@@ -122,13 +122,16 @@
 //! ```
 
 #[cfg(feature = "bincode")]
+use crate::SysvarSerialize;
 use crate::{impl_sysvar_get, Sysvar};
 pub use {
     solana_clock::Clock,
     solana_sdk_ids::sysvar::clock::{check_id, id, ID},
 };
 
-#[cfg(feature = "bincode")]
 impl Sysvar for Clock {
     impl_sysvar_get!(sol_get_clock_sysvar);
 }
+
+#[cfg(feature = "bincode")]
+impl SysvarSerialize for Clock {}
