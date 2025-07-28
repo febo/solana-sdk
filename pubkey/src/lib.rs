@@ -4,7 +4,7 @@
 #![cfg_attr(feature = "frozen-abi", feature(min_specialization))]
 #![allow(clippy::arithmetic_side_effects)]
 
-#[cfg(any(feature = "std", target_arch = "wasm32"))]
+#[cfg(feature = "std")]
 extern crate std;
 #[cfg(feature = "dev-context-only-utils")]
 use arbitrary::Arbitrary;
@@ -418,7 +418,7 @@ impl TryFrom<&[u8]> for Pubkey {
     }
 }
 
-#[cfg(any(feature = "std", target_arch = "wasm32"))]
+#[cfg(feature = "std")]
 impl TryFrom<Vec<u8>> for Pubkey {
     type Error = Vec<u8>;
 
@@ -472,16 +472,16 @@ impl Pubkey {
         type T = u32;
         const COUNTER_BYTES: usize = mem::size_of::<T>();
         let mut b = [0u8; PUBKEY_BYTES];
-        #[cfg(any(feature = "std", target_arch = "wasm32"))]
+        #[cfg(feature = "std")]
         let mut i = I.fetch_add(1) as T;
-        #[cfg(not(any(feature = "std", target_arch = "wasm32")))]
+        #[cfg(not(feature = "std"))]
         let i = I.fetch_add(1) as T;
         // use big endian representation to ensure that recent unique pubkeys
         // are always greater than less recent unique pubkeys.
         b[0..COUNTER_BYTES].copy_from_slice(&i.to_be_bytes());
         // fill the rest of the pubkey with pseudorandom numbers to make
         // data statistically similar to real pubkeys.
-        #[cfg(any(feature = "std", target_arch = "wasm32"))]
+        #[cfg(feature = "std")]
         {
             let mut hash = std::hash::DefaultHasher::new();
             for slice in b[COUNTER_BYTES..].chunks_mut(COUNTER_BYTES) {
@@ -492,7 +492,7 @@ impl Pubkey {
         }
         // if std is not available, just replicate last byte of the counter.
         // this is not as good as a proper hash, but at least it is uniform
-        #[cfg(not(any(feature = "std", target_arch = "wasm32")))]
+        #[cfg(not(feature = "std"))]
         {
             for b in b[COUNTER_BYTES..].iter_mut() {
                 *b = (i & 0xFF) as u8;
