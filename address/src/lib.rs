@@ -14,8 +14,6 @@ pub mod error;
 mod hasher;
 #[cfg(any(feature = "curve25519", feature = "syscalls"))]
 pub mod syscalls;
-#[cfg(all(target_arch = "wasm32", feature = "wasmbind"))]
-mod wasm;
 
 #[cfg(feature = "sha2")]
 use crate::error::AddressError;
@@ -41,8 +39,6 @@ use core::{
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use std::vec::Vec;
-#[cfg(all(target_arch = "wasm32", feature = "wasmbind"))]
-use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg(feature = "borsh")]
 use {
     borsh::{BorshDeserialize, BorshSchema, BorshSerialize},

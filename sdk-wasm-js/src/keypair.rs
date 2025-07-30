@@ -28,6 +28,6 @@ impl Keypair {
     /// Return the `Address` for this `Keypair`
     #[wasm_bindgen(js_name = pubkey)]
     pub fn js_pubkey(&self) -> Address {
-        Pubkey(self.0.pubkey())
+        Address(self.0.pubkey())
     }
 }

@@ -19,7 +19,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 bincode = { workspace = true }
-solana-address = { workspace = true, features = ["curve25519", "sha2", "wasmbind"] }
+solana-address = { workspace = true, features = ["curve25519", "sha2", "std"] }
 solana-hash = { workspace = true }
 solana-instruction = { workspace = true, features = ["std"] }
 solana-keypair = { workspace = true }
