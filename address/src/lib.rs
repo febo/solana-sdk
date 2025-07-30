@@ -434,34 +434,34 @@ mod tests {
     }
 
     #[test]
-    fn pubkey_fromstr() {
-        let pubkey = Address::new_unique();
-        let mut pubkey_base58_str = encode_address(&pubkey.0);
+    fn address_fromstr() {
+        let address = Address::new_unique();
+        let mut address_base58_str = encode_address(&address.0);
 
-        assert_eq!(pubkey_base58_str.parse::<Address>(), Ok(pubkey));
+        assert_eq!(address_base58_str.parse::<Address>(), Ok(address));
 
-        pubkey_base58_str.push_str(&encode_address(&pubkey.0));
+        address_base58_str.push_str(&encode_address(&address.0));
         assert_eq!(
-            pubkey_base58_str.parse::<Address>(),
+            address_base58_str.parse::<Address>(),
             Err(ParseAddressError::WrongSize)
         );
 
-        pubkey_base58_str.truncate(pubkey_base58_str.len() / 2);
-        assert_eq!(pubkey_base58_str.parse::<Address>(), Ok(pubkey));
+        address_base58_str.truncate(address_base58_str.len() / 2);
+        assert_eq!(address_base58_str.parse::<Address>(), Ok(address));
 
-        pubkey_base58_str.truncate(pubkey_base58_str.len() / 2);
+        address_base58_str.truncate(address_base58_str.len() / 2);
         assert_eq!(
-            pubkey_base58_str.parse::<Address>(),
+            address_base58_str.parse::<Address>(),
             Err(ParseAddressError::WrongSize)
         );
 
-        let mut pubkey_base58_str = encode_address(&pubkey.0);
-        assert_eq!(pubkey_base58_str.parse::<Address>(), Ok(pubkey));
+        let mut address_base58_str = encode_address(&address.0);
+        assert_eq!(address_base58_str.parse::<Address>(), Ok(address));
 
         // throw some non-base58 stuff in there
-        pubkey_base58_str.replace_range(..1, "I");
+        address_base58_str.replace_range(..1, "I");
         assert_eq!(
-            pubkey_base58_str.parse::<Address>(),
+            address_base58_str.parse::<Address>(),
             Err(ParseAddressError::Invalid)
         );
 
@@ -621,7 +621,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pubkey_off_curve() {
+    fn test_address_off_curve() {
         // try a bunch of random input, all successful generated program
         // addresses must land off the curve and be unique
         let mut addresses = std::vec![];
@@ -676,7 +676,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pubkey_error_from_primitive_exhaustive() {
+    fn test_address_error_from_primitive_exhaustive() {
         for variant in AddressError::iter() {
             let variant_i64 = variant.clone() as i64;
             assert_eq!(
@@ -688,7 +688,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_pubkey_error_from_primitive_exhaustive() {
+    fn test_parse_address_error_from_primitive_exhaustive() {
         for variant in ParseAddressError::iter() {
             let variant_i64 = variant as i64;
             assert_eq!(

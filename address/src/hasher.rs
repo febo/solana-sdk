@@ -42,10 +42,10 @@ impl Hasher for AddressHasher {
     }
 }
 
-/// A builder for faster, but less collision resistant hasher for pubkeys.
+/// A builder for faster, but less collision resistant hasher for addresses.
 ///
-/// Initializes `PubkeyHasher` instances that use an 8-byte
-/// slice of the pubkey as the hash value. Should not be used when
+/// Initializes `AddressHasher` instances that use an 8-byte
+/// slice of the address as the hash value. Should not be used when
 /// collisions might be used to mount DOS attacks.
 ///
 /// Using this results in about 4x faster lookups in a typical hashmap.
