@@ -46,7 +46,7 @@ impl Address {
     ///
     /// The `seeds` are application-specific, and must be carefully selected to
     /// uniquely derive accounts per application requirements. It is common to
-    /// use static strings and other pubkeys as seeds.
+    /// use static strings and other addresses as seeds.
     ///
     /// Because the program address must not lie on the ed25519 curve, there may
     /// be seed and program id combinations that are invalid. For this reason,
@@ -220,7 +220,7 @@ impl Address {
     /// ) -> Result<()> {
     ///     // Derive the PDA from the payer account, a string representing the unique
     ///     // purpose of the account ("vault"), and the address of our on-chain program.
-    ///     let (vault_pubkey, vault_bump_seed) = Address::find_program_address(
+    ///     let (vault_address, vault_bump_seed) = Address::find_program_address(
     ///         &[b"vault", payer.pubkey().as_ref()],
     ///         &program_id
     ///     );
@@ -239,7 +239,7 @@ impl Address {
     ///     // `create_account` instruction, including the vault's address.
     ///     let accounts = vec![
     ///         AccountMeta::new(payer.pubkey(), true),
-    ///         AccountMeta::new(vault_pubkey, false),
+    ///         AccountMeta::new(vault_address, false),
     ///         AccountMeta::new(solana_system_interface::program::ID, false),
     ///     ];
     ///
