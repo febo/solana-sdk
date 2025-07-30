@@ -2752,7 +2752,6 @@ dependencies = [
  "curve25519-dalek",
  "five8",
  "five8_const",
- "js-sys",
  "num-traits",
  "rand",
  "serde",
@@ -2773,7 +2772,6 @@ dependencies = [
  "solana-system-interface",
  "strum",
  "strum_macros",
- "wasm-bindgen",
 ]
 
 [[package]]

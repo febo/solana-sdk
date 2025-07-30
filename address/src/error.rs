@@ -52,8 +52,7 @@ impl FromPrimitive for AddressError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for AddressError {}
+impl core::error::Error for AddressError {}
 
 impl fmt::Display for AddressError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -131,8 +130,7 @@ impl FromPrimitive for ParseAddressError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ParseAddressError {}
+impl core::error::Error for ParseAddressError {}
 
 impl fmt::Display for ParseAddressError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

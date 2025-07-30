@@ -1,13 +1,8 @@
 //! solana-program Javascript interface
 #![cfg(target_arch = "wasm32")]
 
-use log::Level;
-pub use {
-    solana_address::*,
-    solana_hash::*,
-    solana_instruction::*,
-    solana_keypair::*,
-    solana_transaction::*,
+use {
+    log::Level,
     wasm_bindgen::prelude::{wasm_bindgen, JsValue},
 };
 
