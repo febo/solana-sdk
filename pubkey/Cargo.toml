@@ -28,8 +28,8 @@ sha2 = ["solana-address/sha2"]
 std = ["solana-address/std"]
 
 [dependencies]
-solana-address = { workspace = true, features = ["atomic", "decode", "error", "sanitize", "sha2", "syscalls"] }
 rand = { workspace = true, optional = true }
+solana-address = { workspace = true, features = ["atomic", "decode", "error", "sanitize", "sha2", "syscalls"] }
 
 [lints]
 workspace = true
