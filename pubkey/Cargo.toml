@@ -22,13 +22,14 @@ curve25519 = ["solana-address/curve25519"]
 default = ["std"]
 dev-context-only-utils = ["solana-address/dev-context-only-utils"]
 frozen-abi = ["solana-address/frozen-abi"]
-rand = ["solana-address/rand"]
+rand = ["dep:rand", "solana-address/rand"]
 serde = ["solana-address/serde"]
 sha2 = ["solana-address/sha2"]
 std = ["solana-address/std"]
 
 [dependencies]
 solana-address = { workspace = true, features = ["atomic", "decode", "error", "sanitize", "sha2", "syscalls"] }
+rand = { workspace = true, optional = true }
 
 [lints]
 workspace = true
