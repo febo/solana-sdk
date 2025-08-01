@@ -307,114 +307,6 @@ impl core::fmt::Display for Address {
     }
 }
 
-#[cfg(feature = "decode")]
-/// Convenience macro to declare a static public key and functions to interact with it.
-///
-/// Input: a single literal base58 string representation of a program's ID.
-///
-/// # Example
-///
-/// ```
-/// # // wrapper is used so that the macro invocation occurs in the item position
-/// # // rather than in the statement position which isn't allowed.
-/// use std::str::FromStr;
-/// use solana_address::{declare_id, Address};
-///
-/// # mod item_wrapper {
-/// #   use solana_address::declare_id;
-/// declare_id!("My11111111111111111111111111111111111111111");
-/// # }
-/// # use item_wrapper::id;
-///
-/// let my_id = Address::from_str("My11111111111111111111111111111111111111111").unwrap();
-/// assert_eq!(id(), my_id);
-/// ```
-#[macro_export]
-macro_rules! declare_id {
-    ($address:expr) => {
-        /// The const program ID.
-        pub const ID: $crate::Address = $crate::Address::from_str_const($address);
-
-        /// Returns `true` if given address is the program ID.
-        // TODO make this const once `derive_const` makes it out of nightly
-        // and we can `derive_const(PartialEq)` on `Address`.
-        pub fn check_id(id: &$crate::Address) -> bool {
-            id == &ID
-        }
-
-        /// Returns the program ID.
-        pub const fn id() -> $crate::Address {
-            ID
-        }
-
-        #[cfg(test)]
-        #[test]
-        fn test_id() {
-            assert!(check_id(&id()));
-        }
-    };
-}
-
-#[cfg(feature = "decode")]
-/// Same as [`declare_id`] except that it reports that this ID has been deprecated.
-#[macro_export]
-macro_rules! declare_deprecated_id {
-    ($address:expr) => {
-        /// The const program ID.
-        pub const ID: $crate::Address = $crate::Address::from_str_const($address);
-
-        /// Returns `true` if given address is the program ID.
-        // TODO make this const once `derive_const` makes it out of nightly
-        // and we can `derive_const(PartialEq)` on `Address`.
-        #[deprecated()]
-        pub fn check_id(id: &$crate::Address) -> bool {
-            id == &ID
-        }
-
-        /// Returns the program ID.
-        #[deprecated()]
-        pub const fn id() -> $crate::Address {
-            ID
-        }
-
-        #[cfg(test)]
-        #[test]
-        #[allow(deprecated)]
-        fn test_id() {
-            assert!(check_id(&id()));
-        }
-    };
-}
-
-#[cfg(feature = "decode")]
-/// Convenience macro to define a static `Address` value.
-///
-/// Input: a single literal base58 string representation of an `Address`.
-///
-/// # Example
-///
-/// ```
-/// use std::str::FromStr;
-/// use solana_address::{address, Address};
-///
-/// static ID: Address = address!("My11111111111111111111111111111111111111111");
-///
-/// let my_id = Address::from_str("My11111111111111111111111111111111111111111").unwrap();
-/// assert_eq!(ID, my_id);
-/// ```
-#[macro_export]
-macro_rules! address {
-    ($input:literal) => {
-        $crate::Address::from_str_const($input)
-    };
-}
-
-/// New random `Address` for tests and benchmarks.
-#[cfg(all(feature = "rand", not(target_os = "solana")))]
-pub fn new_rand() -> Address {
-    Address::from(rand::random::<[u8; ADDRESS_BYTES]>())
-}
-
 #[cfg(test)]
 mod tests {
     use {
@@ -696,16 +588,6 @@ mod tests {
                 ParseAddressError::from_i64(variant_i64)
             );
         }
-    }
-
-    #[test]
-    fn test_address_macro() {
-        const PK: Address = Address::from_str_const("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq");
-        assert_eq!(address!("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq"), PK);
-        assert_eq!(
-            Address::from_str("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq").unwrap(),
-            PK
-        );
     }
 
     #[test]

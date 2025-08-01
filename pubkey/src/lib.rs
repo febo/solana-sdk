@@ -9,13 +9,9 @@
 // don't need the curve25519 dependency.
 #[cfg(any(target_os = "solana", feature = "curve25519"))]
 pub use solana_address::bytes_are_curve_point;
-/// New random Pubkey for tests and benchmarks.
-#[cfg(all(feature = "rand", not(target_os = "solana")))]
-pub use solana_address::new_rand;
 #[cfg(target_os = "solana")]
 pub use solana_address::syscalls;
 pub use solana_address::{
-    address as pubkey, declare_deprecated_id, declare_id,
     error::{AddressError as PubkeyError, ParseAddressError as ParsePubkeyError},
     Address as Pubkey, ADDRESS_BYTES as PUBKEY_BYTES, MAX_SEEDS, MAX_SEED_LEN,
 };
@@ -23,3 +19,123 @@ pub use solana_address::{
 pub use solana_address::{
     AddressHasher as PubkeyHasher, AddressHasherBuilder as PubkeyHasherBuilder,
 };
+
+/// New random `Pubkey` for tests and benchmarks.
+#[cfg(all(feature = "rand", not(target_os = "solana")))]
+pub fn new_rand() -> Pubkey {
+    Pubkey::from(rand::random::<[u8; PUBKEY_BYTES]>())
+}
+
+/// Convenience macro to declare a static public key and functions to interact with it.
+///
+/// Input: a single literal base58 string representation of a program's ID.
+///
+/// # Example
+///
+/// ```
+/// # // wrapper is used so that the macro invocation occurs in the item position
+/// # // rather than in the statement position which isn't allowed.
+/// use std::str::FromStr;
+/// use solana_pubkey::{declare_id, Pubkey};
+///
+/// # mod item_wrapper {
+/// #   use solana_pubkey::declare_id;
+/// declare_id!("My11111111111111111111111111111111111111111");
+/// # }
+/// # use item_wrapper::id;
+///
+/// let my_id = Pubkey::from_str("My11111111111111111111111111111111111111111").unwrap();
+/// assert_eq!(id(), my_id);
+/// ```
+#[macro_export]
+macro_rules! declare_id {
+    ($pubkey:expr) => {
+        /// The const program ID.
+        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($pubkey);
+
+        /// Returns `true` if given pubkey is the program ID.
+        // TODO make this const once `derive_const` makes it out of nightly
+        // and we can `derive_const(PartialEq)` on `Pubkey`.
+        pub fn check_id(id: &$crate::Pubkey) -> bool {
+            id == &ID
+        }
+
+        /// Returns the program ID.
+        pub const fn id() -> $crate::Pubkey {
+            ID
+        }
+
+        #[cfg(test)]
+        #[test]
+        fn test_id() {
+            assert!(check_id(&id()));
+        }
+    };
+}
+
+/// Same as [`declare_id`] except that it reports that this ID has been deprecated.
+#[macro_export]
+macro_rules! declare_deprecated_id {
+    ($pubkey:expr) => {
+        /// The const program ID.
+        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($pubkey);
+
+        /// Returns `true` if given pubkey is the program ID.
+        // TODO make this const once `derive_const` makes it out of nightly
+        // and we can `derive_const(PartialEq)` on `Pubkey`.
+        #[deprecated()]
+        pub fn check_id(id: &$crate::Pubkey) -> bool {
+            id == &ID
+        }
+
+        /// Returns the program ID.
+        #[deprecated()]
+        pub const fn id() -> $crate::Pubkey {
+            ID
+        }
+
+        #[cfg(test)]
+        #[test]
+        #[allow(deprecated)]
+        fn test_id() {
+            assert!(check_id(&id()));
+        }
+    };
+}
+
+/// Convenience macro to define a static `Pubkey` value.
+///
+/// Input: a single literal base58 string representation of an `Pubkey`.
+///
+/// # Example
+///
+/// ```
+/// use std::str::FromStr;
+/// use solana_pubkey::{pubkey, Pubkey};
+///
+/// static ID: Pubkey = pubkey!("My11111111111111111111111111111111111111111");
+///
+/// let my_id = Pubkey::from_str("My11111111111111111111111111111111111111111").unwrap();
+/// assert_eq!(ID, my_id);
+/// ```
+#[macro_export]
+macro_rules! pubkey {
+    ($input:literal) => {
+        $crate::Pubkey::from_str_const($input)
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use {super::*, core::str::FromStr};
+
+    #[test]
+    fn test_pubkey_macro() {
+        const PK: Pubkey = Pubkey::from_str_const("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq");
+        assert_eq!(pubkey!("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq"), PK);
+        assert_eq!(
+            Pubkey::from_str("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq").unwrap(),
+            PK
+        );
+    }
+}
