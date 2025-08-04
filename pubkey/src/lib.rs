@@ -1091,9 +1091,9 @@ impl Pubkey {
 /// ```
 #[macro_export]
 macro_rules! declare_id {
-    ($address:expr) => {
+    ($pubkey:expr) => {
         /// The const program ID.
-        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($address);
+        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($pubkey);
 
         /// Returns `true` if given pubkey is the program ID.
         // TODO make this const once `derive_const` makes it out of nightly
@@ -1118,9 +1118,9 @@ macro_rules! declare_id {
 /// Same as [`declare_id`] except that it reports that this ID has been deprecated.
 #[macro_export]
 macro_rules! declare_deprecated_id {
-    ($address:expr) => {
+    ($pubkey:expr) => {
         /// The const program ID.
-        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($address);
+        pub const ID: $crate::Pubkey = $crate::Pubkey::from_str_const($pubkey);
 
         /// Returns `true` if given pubkey is the program ID.
         // TODO make this const once `derive_const` makes it out of nightly
