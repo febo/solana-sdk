@@ -307,6 +307,28 @@ impl core::fmt::Display for Address {
     }
 }
 
+/// Convenience macro to define a static `Address` value.
+///
+/// Input: a single literal base58 string representation of an `Address`.
+///
+/// # Example
+///
+/// ```
+/// use std::str::FromStr;
+/// use solana_address::{address, Address};
+///
+/// static ID: Address = address!("My11111111111111111111111111111111111111111");
+///
+/// let my_id = Address::from_str("My11111111111111111111111111111111111111111").unwrap();
+/// assert_eq!(ID, my_id);
+/// ```
+#[macro_export]
+macro_rules! address {
+    ($input:literal) => {
+        $crate::Address::from_str_const($input)
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use {
@@ -598,5 +620,19 @@ mod tests {
         assert_eq!(key.as_array(), &key.to_bytes());
         // Sanity check: ensure the pointer is the same.
         assert_eq!(key.as_array().as_ptr(), key.0.as_ptr());
+    }
+
+    #[test]
+    fn test_address_macro() {
+        const ADDRESS: Address =
+            Address::from_str_const("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq");
+        assert_eq!(
+            address!("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq"),
+            ADDRESS
+        );
+        assert_eq!(
+            Address::from_str("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq").unwrap(),
+            ADDRESS
+        );
     }
 }

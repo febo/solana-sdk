@@ -12,6 +12,7 @@ pub use solana_address::bytes_are_curve_point;
 #[cfg(target_os = "solana")]
 pub use solana_address::syscalls;
 pub use solana_address::{
+    address as pubkey,
     error::{AddressError as PubkeyError, ParseAddressError as ParsePubkeyError},
     Address as Pubkey, ADDRESS_BYTES as PUBKEY_BYTES, MAX_SEEDS, MAX_SEED_LEN,
 };
@@ -101,41 +102,4 @@ macro_rules! declare_deprecated_id {
             assert!(check_id(&id()));
         }
     };
-}
-
-/// Convenience macro to define a static `Pubkey` value.
-///
-/// Input: a single literal base58 string representation of an `Pubkey`.
-///
-/// # Example
-///
-/// ```
-/// use std::str::FromStr;
-/// use solana_pubkey::{pubkey, Pubkey};
-///
-/// static ID: Pubkey = pubkey!("My11111111111111111111111111111111111111111");
-///
-/// let my_id = Pubkey::from_str("My11111111111111111111111111111111111111111").unwrap();
-/// assert_eq!(ID, my_id);
-/// ```
-#[macro_export]
-macro_rules! pubkey {
-    ($input:literal) => {
-        $crate::Pubkey::from_str_const($input)
-    };
-}
-
-#[cfg(test)]
-mod tests {
-    use {super::*, core::str::FromStr};
-
-    #[test]
-    fn test_pubkey_macro() {
-        const PK: Pubkey = Pubkey::from_str_const("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq");
-        assert_eq!(pubkey!("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq"), PK);
-        assert_eq!(
-            Pubkey::from_str("9h1HyLCW5dZnBVap8C5egQ9Z6pHyjsh5MNy83iPqqRuq").unwrap(),
-            PK
-        );
-    }
 }
