@@ -266,7 +266,7 @@ solana-precompile-error = { path = "precompile-error", version = "2.2.1" }
 solana-presigner = { path = "presigner", version = "2.2.1" }
 solana-program = { path = "program", version = "2.2.1", default-features = false }
 solana-program-entrypoint = { path = "program-entrypoint", version = "2.2.1" }
-solana-program-error = { path = "program-error", version = "2.2.1" }
+solana-program-error = { path = "program-error", version = "3.0.0" }
 solana-program-memory = { path = "program-memory", version = "2.2.1" }
 solana-program-option = { path = "program-option", version = "2.2.1" }
 solana-program-pack = { path = "program-pack", version = "2.2.1" }
