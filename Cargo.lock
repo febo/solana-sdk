@@ -3817,7 +3817,7 @@ dependencies = [
 
 [[package]]
 name = "solana-seed-phrase"
-version = "2.2.1"
+version = "3.0.0"
 dependencies = [
  "hmac",
  "pbkdf2 0.11.0",

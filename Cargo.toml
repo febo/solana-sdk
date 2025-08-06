@@ -284,7 +284,7 @@ solana-secp256k1-program = { path = "secp256k1-program", version = "2.2.1" }
 solana-secp256k1-recover = { path = "secp256k1-recover", version = "2.2.1" }
 solana-secp256r1-program = { path = "secp256r1-program", version = "2.2.1", default-features = false }
 solana-seed-derivable = { path = "seed-derivable", version = "2.2.1" }
-solana-seed-phrase = { path = "seed-phrase", version = "2.2.1" }
+solana-seed-phrase = { path = "seed-phrase", version = "3.0.0" }
 solana-serde = { path = "serde", version = "2.2.1" }
 solana-serde-varint = { path = "serde-varint", version = "2.2.1" }
 solana-serialize-utils = { path = "serialize-utils", version = "2.2.1" }
