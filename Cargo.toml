@@ -304,7 +304,7 @@ solana-sysvar-id = { path = "sysvar-id", version = "2.2.1" }
 solana-time-utils = { path = "time-utils", version = "3.0.0" }
 solana-transaction = { path = "transaction", version = "2.2.1" }
 solana-transaction-error = { path = "transaction-error", version = "2.2.1" }
-solana-validator-exit = { path = "validator-exit", version = "2.2.1" }
+solana-validator-exit = { path = "validator-exit", version = "3.0.0" }
 solana-vote-interface = { path = "vote-interface", version = "2.2.1" }
 static_assertions = "1.1.0"
 strum = "0.24"
