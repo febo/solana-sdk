@@ -259,7 +259,7 @@ solana-nonce = { path = "nonce", version = "2.2.1" }
 solana-nonce-account = { path = "nonce-account", version = "2.2.1" }
 solana-offchain-message = { path = "offchain-message", version = "2.2.1" }
 solana-package-metadata = { path = "package-metadata", version = "2.2.1" }
-solana-package-metadata-macro = { path = "package-metadata-macro", version = "2.2.1" }
+solana-package-metadata-macro = { path = "package-metadata-macro", version = "3.0.0" }
 solana-packet = { path = "packet", version = "2.2.1" }
 solana-poh-config = { path = "poh-config", version = "2.2.1" }
 solana-precompile-error = { path = "precompile-error", version = "2.2.1" }
