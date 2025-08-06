@@ -3469,7 +3469,7 @@ dependencies = [
 
 [[package]]
 name = "solana-precompile-error"
-version = "2.2.2"
+version = "3.0.0"
 dependencies = [
  "num-traits",
 ]

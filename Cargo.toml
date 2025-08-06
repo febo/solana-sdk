@@ -262,7 +262,7 @@ solana-package-metadata = { path = "package-metadata", version = "2.2.1" }
 solana-package-metadata-macro = { path = "package-metadata-macro", version = "3.0.0" }
 solana-packet = { path = "packet", version = "2.2.1" }
 solana-poh-config = { path = "poh-config", version = "2.2.1" }
-solana-precompile-error = { path = "precompile-error", version = "2.2.1" }
+solana-precompile-error = { path = "precompile-error", version = "3.0.0" }
 solana-presigner = { path = "presigner", version = "2.2.1" }
 solana-program = { path = "program", version = "2.2.1", default-features = false }
 solana-program-entrypoint = { path = "program-entrypoint", version = "2.2.1" }
