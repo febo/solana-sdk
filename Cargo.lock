@@ -3810,7 +3810,7 @@ dependencies = [
 
 [[package]]
 name = "solana-seed-derivable"
-version = "2.2.1"
+version = "3.0.0"
 dependencies = [
  "solana-derivation-path",
 ]
