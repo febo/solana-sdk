@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "solana-file-download"
-version = "2.2.2"
+version = "3.0.0"
 dependencies = [
  "console",
  "indicatif",
