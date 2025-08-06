@@ -3376,7 +3376,7 @@ dependencies = [
 
 [[package]]
 name = "solana-native-token"
-version = "2.3.0"
+version = "3.0.0"
 
 [[package]]
 name = "solana-nonce"
