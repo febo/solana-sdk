@@ -2885,7 +2885,7 @@ dependencies = [
 
 [[package]]
 name = "solana-clock"
-version = "2.2.2"
+version = "3.0.0"
 dependencies = [
  "serde",
  "serde_derive",
