@@ -3584,7 +3584,7 @@ version = "3.0.0"
 
 [[package]]
 name = "solana-program-pack"
-version = "2.2.1"
+version = "3.0.0"
 dependencies = [
  "solana-program-error 2.2.1",
 ]
