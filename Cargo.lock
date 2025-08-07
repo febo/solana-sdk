@@ -3441,7 +3441,7 @@ dependencies = [
 
 [[package]]
 name = "solana-packet"
-version = "2.2.1"
+version = "3.0.0"
 dependencies = [
  "bincode",
  "bitflags 2.8.0",
