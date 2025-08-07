@@ -3240,7 +3240,7 @@ dependencies = [
 
 [[package]]
 name = "solana-keccak-hasher"
-version = "2.2.1"
+version = "3.0.0"
 dependencies = [
  "sha3",
  "solana-define-syscall",

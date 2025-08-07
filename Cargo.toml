@@ -245,7 +245,7 @@ solana-inflation = { path = "inflation", version = "3.0.0" }
 solana-instruction = { path = "instruction", version = "2.3.0", default-features = false }
 solana-instruction-error = { path = "instruction-error", version = "2.0.0" }
 solana-instructions-sysvar = { path = "instructions-sysvar", version = "2.2.1" }
-solana-keccak-hasher = { path = "keccak-hasher", version = "2.2.1" }
+solana-keccak-hasher = { path = "keccak-hasher", version = "3.0.0" }
 solana-keypair = { path = "keypair", version = "2.2.1" }
 solana-last-restart-slot = { path = "last-restart-slot", version = "2.2.1" }
 solana-loader-v2-interface = { path = "loader-v2-interface", version = "2.2.1" }
