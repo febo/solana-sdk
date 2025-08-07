@@ -3800,7 +3800,7 @@ dependencies = [
 
 [[package]]
 name = "solana-secp256r1-program"
-version = "2.2.4"
+version = "3.0.0"
 dependencies = [
  "bytemuck",
  "openssl",
