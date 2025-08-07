@@ -3859,7 +3859,7 @@ dependencies = [
 
 [[package]]
 name = "solana-sha256-hasher"
-version = "2.2.1"
+version = "3.0.0"
 dependencies = [
  "sha2",
  "solana-define-syscall",
