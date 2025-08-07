@@ -3077,7 +3077,7 @@ dependencies = [
 
 [[package]]
 name = "solana-fee-structure"
-version = "2.3.0"
+version = "3.0.0"
 dependencies = [
  "serde",
  "serde_derive",
