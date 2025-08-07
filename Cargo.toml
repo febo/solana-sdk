@@ -270,7 +270,7 @@ solana-program-error = { path = "program-error", version = "3.0.0" }
 solana-program-memory = { path = "program-memory", version = "3.0.0" }
 solana-program-option = { path = "program-option", version = "3.0.0" }
 solana-program-pack = { path = "program-pack", version = "3.0.0" }
-solana-pubkey = { path = "pubkey", version = "2.2.1", default-features = false }
+solana-pubkey = { path = "pubkey", version = "3.0.0", default-features = false }
 solana-quic-definitions = { path = "quic-definitions", version = "2.2.1" }
 solana-rent = { path = "rent", version = "2.2.1", default-features = false }
 solana-rent-collector = { path = "rent-collector", version = "2.2.1" }
