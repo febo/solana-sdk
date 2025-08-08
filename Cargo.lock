@@ -3026,7 +3026,7 @@ dependencies = [
 
 [[package]]
 name = "solana-example-mocks"
-version = "2.2.1"
+version = "3.0.0"
 dependencies = [
  "serde",
  "serde_derive",
