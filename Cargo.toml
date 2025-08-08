@@ -271,7 +271,7 @@ solana-program-memory = { path = "program-memory", version = "3.0.0" }
 solana-program-option = { path = "program-option", version = "3.0.0" }
 solana-program-pack = { path = "program-pack", version = "3.0.0" }
 solana-pubkey = { path = "pubkey", version = "3.0.0", default-features = false }
-solana-quic-definitions = { path = "quic-definitions", version = "2.2.1" }
+solana-quic-definitions = { path = "quic-definitions", version = "3.0.0" }
 solana-rent = { path = "rent", version = "3.0.0", default-features = false }
 solana-rent-collector = { path = "rent-collector", version = "2.2.1" }
 solana-reward-info = { path = "reward-info", version = "3.0.0" }
