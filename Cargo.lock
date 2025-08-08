@@ -3758,7 +3758,7 @@ dependencies = [
 
 [[package]]
 name = "solana-secp256k1-program"
-version = "2.2.3"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "bincode",
