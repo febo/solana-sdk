@@ -261,7 +261,7 @@ solana-offchain-message = { path = "offchain-message", version = "2.2.1" }
 solana-package-metadata = { path = "package-metadata", version = "3.0.0" }
 solana-package-metadata-macro = { path = "package-metadata-macro", version = "3.0.0" }
 solana-packet = { path = "packet", version = "3.0.0" }
-solana-poh-config = { path = "poh-config", version = "2.2.1" }
+solana-poh-config = { path = "poh-config", version = "3.0.0" }
 solana-precompile-error = { path = "precompile-error", version = "3.0.0" }
 solana-presigner = { path = "presigner", version = "3.0.0" }
 solana-program = { path = "program", version = "2.2.1", default-features = false }
