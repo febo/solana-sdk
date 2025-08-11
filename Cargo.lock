@@ -3488,7 +3488,7 @@ dependencies = [
 
 [[package]]
 name = "solana-program"
-version = "2.3.0"
+version = "3.0.0"
 dependencies = [
  "memoffset",
  "solana-account-info",
