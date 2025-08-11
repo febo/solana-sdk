@@ -3045,7 +3045,7 @@ dependencies = [
 
 [[package]]
 name = "solana-feature-gate-interface"
-version = "2.2.2"
+version = "3.0.0"
 dependencies = [
  "bincode",
  "serde",
