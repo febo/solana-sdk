@@ -188,30 +188,51 @@ pub fn get_sysvar(
     sysvar_id: &Pubkey,
     offset: u64,
     length: u64,
-) -> Result<(), solana_program_error::ProgramError> {
+) -> Result<(), ProgramError> {
     // Check that the provided destination buffer is large enough to hold the
     // requested data.
     if dst.len() < length as usize {
-        return Err(solana_program_error::ProgramError::InvalidArgument);
+        return Err(ProgramError::InvalidArgument);
     }
 
-    let sysvar_id = sysvar_id as *const _ as *const u8;
-    let var_addr = dst as *mut _ as *mut u8;
+    // SAFETY: The length of the slice was validated.
+    unsafe { get_sysvar_unchecked(dst.as_mut_ptr(), sysvar_id, offset, length) }
+}
 
+/// Handler for retrieving a slice of sysvar data from the `sol_get_sysvar`
+/// syscall.
+///
+/// # Safety
+///
+/// The caller must ensure that the `dst` pointer is valid and has enough space
+/// to hold the requested `len` bytes of data.
+#[inline(always)]
+pub unsafe fn get_sysvar_unchecked(
+    dst: *mut u8,
+    sysvar_id: &Pubkey,
+    offset: u64,
+    len: u64,
+) -> Result<(), ProgramError> {
     #[cfg(target_os = "solana")]
     let result = unsafe {
-        solana_define_syscall::definitions::sol_get_sysvar(sysvar_id, var_addr, offset, length)
+        solana_define_syscall::definitions::sol_get_sysvar(
+            sysvar_id as *const _ as *const u8,
+            dst,
+            offset,
+            len,
+        )
     };
 
     #[cfg(not(target_os = "solana"))]
-    let result = crate::program_stubs::sol_get_sysvar(sysvar_id, var_addr, offset, length);
+    let result =
+        crate::program_stubs::sol_get_sysvar(sysvar_id as *const _ as *const u8, dst, offset, len);
 
     match result {
         solana_program_entrypoint::SUCCESS => Ok(()),
-        OFFSET_LENGTH_EXCEEDS_SYSVAR => Err(solana_program_error::ProgramError::InvalidArgument),
-        SYSVAR_NOT_FOUND => Err(solana_program_error::ProgramError::UnsupportedSysvar),
+        OFFSET_LENGTH_EXCEEDS_SYSVAR => Err(ProgramError::InvalidArgument),
+        SYSVAR_NOT_FOUND => Err(ProgramError::UnsupportedSysvar),
         // Unexpected errors are folded into `UnsupportedSysvar`.
-        _ => Err(solana_program_error::ProgramError::UnsupportedSysvar),
+        _ => Err(ProgramError::UnsupportedSysvar),
     }
 }
 
