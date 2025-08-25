@@ -3,15 +3,18 @@
 use {
     ed25519_dalek::Signer as DalekSigner,
     rand::rngs::OsRng,
-    solana_pubkey::Pubkey,
     solana_seed_phrase::generate_seed_from_seed_phrase_and_passphrase,
-    solana_signature::{error::Error as SignatureError, Signature},
-    solana_signer::{EncodableKey, EncodableKeypair, Signer, SignerError},
+    solana_signer::SignerError,
     std::{
         error,
         io::{Read, Write},
         path::Path,
     },
+};
+pub use {
+    solana_pubkey::Pubkey,
+    solana_signature::{error::Error as SignatureError, Signature},
+    solana_signer::{EncodableKey, EncodableKeypair, Signer},
 };
 
 #[cfg(feature = "seed-derivable")]
