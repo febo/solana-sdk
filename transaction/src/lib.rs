@@ -115,22 +115,23 @@ use {
     serde_derive::{Deserialize, Serialize},
     solana_short_vec as short_vec,
 };
+pub use {
+    solana_address::Address,
+    solana_instruction::{AccountMeta, Instruction},
+    solana_instruction_error::InstructionError,
+    solana_message::{compiled_instruction::CompiledInstruction, Message, VersionedMessage},
+    solana_signature::Signature,
+    solana_transaction_error::{TransactionError, TransactionResult},
+};
 #[cfg(feature = "bincode")]
-use {
+pub use {
     solana_hash::Hash,
     solana_signer::{signers::Signers, SignerError},
 };
 use {
-    solana_instruction::Instruction,
-    solana_message::{
-        compiled_instruction::CompiledInstruction, inline_nonce::is_advance_nonce_instruction_data,
-        Message,
-    },
-    solana_pubkey::Pubkey,
+    solana_message::inline_nonce::is_advance_nonce_instruction_data,
     solana_sanitize::{Sanitize, SanitizeError},
     solana_sdk_ids::system_program,
-    solana_signature::Signature,
-    solana_transaction_error::{TransactionError, TransactionResult as Result},
     std::result,
 };
 
@@ -427,7 +428,7 @@ impl Transaction {
     /// #
     /// # Ok::<(), anyhow::Error>(())
     /// ```
-    pub fn new_with_payer(instructions: &[Instruction], payer: Option<&Pubkey>) -> Self {
+    pub fn new_with_payer(instructions: &[Instruction], payer: Option<&Address>) -> Self {
         let message = Message::new(instructions, payer);
         Self::new_unsigned(message)
     }
@@ -509,7 +510,7 @@ impl Transaction {
     #[cfg(feature = "bincode")]
     pub fn new_signed_with_payer<T: Signers + ?Sized>(
         instructions: &[Instruction],
-        payer: Option<&Pubkey>,
+        payer: Option<&Address>,
         signing_keypairs: &T,
         recent_blockhash: Hash,
     ) -> Self {
@@ -535,9 +536,9 @@ impl Transaction {
     #[cfg(feature = "bincode")]
     pub fn new_with_compiled_instructions<T: Signers + ?Sized>(
         from_keypairs: &T,
-        keys: &[Pubkey],
+        keys: &[Address],
         recent_blockhash: Hash,
-        program_ids: Vec<Pubkey>,
+        program_ids: Vec<Address>,
         instructions: Vec<CompiledInstruction>,
     ) -> Self {
         let mut account_keys = from_keypairs.pubkeys();
@@ -592,7 +593,7 @@ impl Transaction {
     /// Returns `None` if `instruction_index` is greater than or equal to the
     /// number of instructions in the transaction; or if `accounts_index` is
     /// greater than or equal to the number of accounts in the instruction.
-    pub fn key(&self, instruction_index: usize, accounts_index: usize) -> Option<&Pubkey> {
+    pub fn key(&self, instruction_index: usize, accounts_index: usize) -> Option<&Address> {
         self.key_index(instruction_index, accounts_index)
             .and_then(|account_keys_index| self.message.account_keys.get(account_keys_index))
     }
@@ -613,7 +614,7 @@ impl Transaction {
     /// Returns `None` if `instruction_index` is greater than or equal to the
     /// number of instructions in the transaction; or if `accounts_index` is
     /// greater than or equal to the number of accounts in the instruction.
-    pub fn signer_key(&self, instruction_index: usize, accounts_index: usize) -> Option<&Pubkey> {
+    pub fn signer_key(&self, instruction_index: usize, accounts_index: usize) -> Option<&Address> {
         match self.key_index(instruction_index, accounts_index) {
             None => None,
             Some(signature_index) => {
@@ -976,7 +977,7 @@ impl Transaction {
     /// # Errors
     ///
     /// Returns [`TransactionError::SignatureFailure`] on error.
-    pub fn verify(&self) -> Result<()> {
+    pub fn verify(&self) -> TransactionResult<()> {
         let message_bytes = self.message_data();
         if !self
             ._verify_with_results(&message_bytes)
@@ -995,7 +996,7 @@ impl Transaction {
     /// # Errors
     ///
     /// Returns [`TransactionError::SignatureFailure`] on error.
-    pub fn verify_and_hash_message(&self) -> Result<Hash> {
+    pub fn verify_and_hash_message(&self) -> TransactionResult<Hash> {
         let message_bytes = self.message_data();
         if !self
             ._verify_with_results(&message_bytes)
@@ -1029,7 +1030,10 @@ impl Transaction {
     /// Get the positions of the pubkeys in `account_keys` associated with signing keypairs.
     ///
     /// [`account_keys`]: Message::account_keys
-    pub fn get_signing_keypair_positions(&self, pubkeys: &[Pubkey]) -> Result<Vec<Option<usize>>> {
+    pub fn get_signing_keypair_positions(
+        &self,
+        pubkeys: &[Address],
+    ) -> TransactionResult<Vec<Option<usize>>> {
         if self.message.account_keys.len() < self.message.header.num_required_signatures as usize {
             return Err(TransactionError::InvalidAccountIndex);
         }
@@ -1044,7 +1048,10 @@ impl Transaction {
 
     #[cfg(feature = "verify")]
     /// Replace all the signatures and pubkeys.
-    pub fn replace_signatures(&mut self, signers: &[(Pubkey, Signature)]) -> Result<()> {
+    pub fn replace_signatures(
+        &mut self,
+        signers: &[(Address, Signature)],
+    ) -> TransactionResult<()> {
         let num_required_signatures = self.message.header.num_required_signatures as usize;
         if signers.len() != num_required_signatures
             || self.signatures.len() != num_required_signatures
@@ -1110,7 +1117,7 @@ mod tests {
         std::mem::size_of,
     };
 
-    fn get_program_id(tx: &Transaction, instruction_index: usize) -> &Pubkey {
+    fn get_program_id(tx: &Transaction, instruction_index: usize) -> &Address {
         let message = tx.message();
         let instruction = &message.instructions[instruction_index];
         instruction.program_id(&message.account_keys)
@@ -1179,17 +1186,17 @@ mod tests {
             &[&key],
             &[],
             Hash::default(),
-            vec![Pubkey::default()],
+            vec![Address::default()],
             instructions,
         );
-        assert_eq!(*get_program_id(&tx, 0), Pubkey::default());
+        assert_eq!(*get_program_id(&tx, 0), Address::default());
         assert_eq!(tx.sanitize(), Err(SanitizeError::IndexOutOfBounds));
     }
 
     #[test]
     fn test_sanitize_txs() {
         let key = Keypair::new();
-        let id0 = Pubkey::default();
+        let id0 = Address::default();
         let program_id = solana_pubkey::new_rand();
         let ix = Instruction::new_with_bincode(
             program_id,
@@ -1238,7 +1245,7 @@ mod tests {
         tx = o.clone();
         tx.message.header.num_readonly_signed_accounts = 2;
         tx.message.header.num_readonly_unsigned_accounts = 3;
-        tx.message.account_keys.resize(4, Pubkey::default());
+        tx.message.account_keys.resize(4, Address::default());
         assert_eq!(tx.sanitize(), Err(SanitizeError::IndexOutOfBounds));
 
         tx = o;
@@ -1258,12 +1265,12 @@ mod tests {
             .as_ref(),
         )
         .unwrap();
-        let to = Pubkey::from([
+        let to = Address::from([
             1, 1, 1, 4, 5, 6, 7, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 8, 7, 6, 5, 4,
             1, 1, 1,
         ]);
 
-        let program_id = Pubkey::from([
+        let program_id = Address::from([
             2, 2, 2, 4, 5, 6, 7, 8, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 9, 8, 7, 6, 5, 4,
             2, 2, 2,
         ]);
@@ -1324,7 +1331,7 @@ mod tests {
             + num_required_sigs_size
             + num_readonly_accounts_size
             + len_size
-            + (tx.message.account_keys.len() * size_of::<Pubkey>())
+            + (tx.message.account_keys.len() * size_of::<Address>())
             + blockhash_size
             + len_size
             + expected_instruction_size;
@@ -1372,7 +1379,7 @@ mod tests {
         let keypair = Keypair::new();
         let fee_payer = solana_pubkey::new_rand();
         let ix = Instruction::new_with_bincode(
-            Pubkey::default(),
+            Address::default(),
             &0,
             vec![AccountMeta::new(fee_payer, true)],
         );
@@ -1386,7 +1393,7 @@ mod tests {
         let keypair1 = Keypair::new();
         let keypair2 = Keypair::new();
         let ix = Instruction::new_with_bincode(
-            Pubkey::default(),
+            Address::default(),
             &0,
             vec![
                 AccountMeta::new(keypair0.pubkey(), true),
@@ -1412,7 +1419,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_transaction_missing_keypair() {
-        let program_id = Pubkey::default();
+        let program_id = Address::default();
         let keypair0 = Keypair::new();
         let id0 = keypair0.pubkey();
         let ix = Instruction::new_with_bincode(program_id, &0, vec![AccountMeta::new(id0, true)]);
@@ -1423,9 +1430,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_transaction_wrong_key() {
-        let program_id = Pubkey::default();
+        let program_id = Address::default();
         let keypair0 = Keypair::new();
-        let wrong_id = Pubkey::default();
+        let wrong_id = Address::default();
         let ix =
             Instruction::new_with_bincode(program_id, &0, vec![AccountMeta::new(wrong_id, true)]);
         let message = Message::new(&[ix], Some(&wrong_id));
@@ -1434,7 +1441,7 @@ mod tests {
 
     #[test]
     fn test_transaction_correct_key() {
-        let program_id = Pubkey::default();
+        let program_id = Address::default();
         let keypair0 = Keypair::new();
         let id0 = keypair0.pubkey();
         let ix = Instruction::new_with_bincode(program_id, &0, vec![AccountMeta::new(id0, true)]);
@@ -1450,7 +1457,7 @@ mod tests {
 
     #[test]
     fn test_transaction_instruction_with_duplicate_keys() {
-        let program_id = Pubkey::default();
+        let program_id = Address::default();
         let keypair0 = Keypair::new();
         let id0 = keypair0.pubkey();
         let id1 = solana_pubkey::new_rand();
@@ -1476,7 +1483,7 @@ mod tests {
 
     #[test]
     fn test_try_sign_dyn_keypairs() {
-        let program_id = Pubkey::default();
+        let program_id = Address::default();
         let keypair = Keypair::new();
         let pubkey = keypair.pubkey();
         let presigner_keypair = Keypair::new();
@@ -1524,7 +1531,7 @@ mod tests {
         );
     }
 
-    fn nonced_transfer_tx() -> (Pubkey, Pubkey, Transaction) {
+    fn nonced_transfer_tx() -> (Address, Address, Transaction) {
         let from_keypair = Keypair::new();
         let from_pubkey = from_keypair.pubkey();
         let nonce_keypair = Keypair::new();
@@ -1595,7 +1602,7 @@ mod tests {
     fn tx_keypair_pubkey_mismatch() {
         let from_keypair = Keypair::new();
         let from_pubkey = from_keypair.pubkey();
-        let to_pubkey = Pubkey::new_unique();
+        let to_pubkey = Address::new_unique();
         let instructions = [system_instruction::transfer(&from_pubkey, &to_pubkey, 42)];
         let mut tx = Transaction::new_with_payer(&instructions, Some(&from_pubkey));
         let unused_keypair = Keypair::new();
@@ -1625,7 +1632,7 @@ mod tests {
 
     #[test]
     fn test_replace_signatures() {
-        let program_id = Pubkey::default();
+        let program_id = Address::default();
         let keypair0 = Keypair::new();
         let keypair1 = Keypair::new();
         let pubkey0 = keypair0.pubkey();
