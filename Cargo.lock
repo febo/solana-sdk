@@ -3648,7 +3648,7 @@ dependencies = [
 
 [[package]]
 name = "solana-sanitize"
-version = "3.0.0"
+version = "3.0.1"
 
 [[package]]
 name = "solana-sdk"
