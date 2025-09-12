@@ -313,6 +313,7 @@ impl core::fmt::Display for Address {
 /// The implementation compares the address in 4 chunks of 8 bytes (`u64` values),
 /// which is currently more efficient (CU-wise) than the default implementation.
 impl PartialEq for Address {
+    #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         let p1_ptr = self.0.as_ptr().cast::<u64>();
         let p2_ptr = other.0.as_ptr().cast::<u64>();
