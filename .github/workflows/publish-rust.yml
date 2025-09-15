@@ -31,6 +31,17 @@ on:
         required: true
         type: boolean
         default: true
+      dependent_version:
+        description: |
+          How workspace dependencies should be handled.
+          - "fix": (Default) Only bumps the workspace for semver-breakage - prefer this option
+          - "upgrade": Bumps workspace version regardless - only use if another SDK crate requires new code
+        required: true
+        default: fix
+        type: choice
+        options:
+          - fix
+          - upgrade
 
 jobs:
   sanity:
@@ -218,7 +229,7 @@ jobs:
             OPTIONS=""
           fi
 
-          ./scripts/publish-rust.sh "${{ inputs.package_path }}" $LEVEL $OPTIONS
+          ./scripts/publish-rust.sh "${{ inputs.package_path }}" $LEVEL "${{ inputs.dependent_version }}" $OPTIONS
 
       - name: Generate a changelog
         if: github.event.inputs.create_release == 'true'
