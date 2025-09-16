@@ -334,6 +334,7 @@ impl PartialEq for Address {
     }
 }
 
+#[cfg(feature = "decode")]
 /// Convenience macro to define a static `Address` value.
 ///
 /// Input: a single literal base58 string representation of an `Address`.
