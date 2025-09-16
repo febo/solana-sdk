@@ -272,6 +272,12 @@ impl Address {
     pub fn is_on_curve(&self) -> bool {
         bytes_are_curve_point(self)
     }
+
+    #[cfg(all(not(target_os = "solana"), feature = "std"))]
+    /// Log a `Address` from a program
+    pub fn log(&self) {
+        std::println!("{}", std::string::ToString::to_string(&self));
+    }
 }
 
 impl AsRef<[u8]> for Address {

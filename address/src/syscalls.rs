@@ -15,16 +15,10 @@ pub use solana_define_syscall::definitions::{
 const SUCCESS: u64 = 0;
 
 impl Address {
-    #[cfg(any(target_os = "solana", feature = "std"))]
+    #[cfg(target_os = "solana")]
     /// Log a `Address` from a program
     pub fn log(&self) {
-        #[cfg(target_os = "solana")]
-        unsafe {
-            sol_log_pubkey(self.as_ref() as *const _ as *const u8)
-        };
-
-        #[cfg(not(target_os = "solana"))]
-        std::println!("{}", std::string::ToString::to_string(&self));
+        unsafe { sol_log_pubkey(self.as_ref() as *const _ as *const u8) };
     }
 
     /// Find a valid [program derived address][pda] and its corresponding bump seed.
