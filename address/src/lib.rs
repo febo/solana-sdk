@@ -83,8 +83,9 @@ const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
 #[cfg_attr(all(feature = "borsh", feature = "std"), derive(BorshSchema))]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "bytemuck", derive(Pod, Zeroable))]
-#[derive(Clone, Copy, Default, Eq, Ord, PartialOrd)]
 #[cfg_attr(feature = "dev-context-only-utils", derive(Arbitrary))]
+#[cfg_attr(not(feature = "decode"), derive(Debug))]
+#[derive(Clone, Copy, Default, Eq, Ord, PartialOrd)]
 pub struct Address(pub(crate) [u8; 32]);
 
 #[cfg(feature = "sanitize")]
