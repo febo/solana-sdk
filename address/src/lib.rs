@@ -55,9 +55,8 @@ pub const MAX_SEEDS: usize = 16;
 #[cfg(feature = "decode")]
 /// Maximum string length of a base58 encoded address.
 const MAX_BASE58_LEN: usize = 44;
-
-#[cfg(feature = "sha2")]
-const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
+/// Marker used to find program derived addresses (PDAs).
+pub const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
 
 /// The address of a [Solana account][acc].
 ///
