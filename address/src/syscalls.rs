@@ -270,6 +270,7 @@ impl Address {
     // When target_os != "solana", this should be opt-in so users
     // don't need the curve25519 dependency.
     #[cfg(any(target_os = "solana", feature = "curve25519"))]
+    #[inline(always)]
     pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
         Self::try_find_program_address(seeds, program_id)
             .unwrap_or_else(|| panic!("Unable to find a viable program address bump seed"))
@@ -293,6 +294,7 @@ impl Address {
     // don't need the curve25519 dependency.
     #[cfg(any(target_os = "solana", feature = "curve25519"))]
     #[allow(clippy::same_item_push)]
+    #[inline(always)]
     pub fn try_find_program_address(
         seeds: &[&[u8]],
         program_id: &Address,
@@ -319,7 +321,7 @@ impl Address {
         // Call via a system call to perform the calculation
         #[cfg(target_os = "solana")]
         {
-            let mut bytes = [0; 32];
+            let mut bytes = core::mem::MaybeUninit::<Address>::uninit();
             let mut bump_seed = u8::MAX;
             let result = unsafe {
                 crate::syscalls::sol_try_find_program_address(
@@ -331,7 +333,8 @@ impl Address {
                 )
             };
             match result {
-                SUCCESS => Some((Address::from(bytes), bump_seed)),
+                // SAFETY: The syscall has initialized the bytes.
+                SUCCESS => Some((unsafe { bytes.assume_init() }, bump_seed)),
                 _ => None,
             }
         }
@@ -384,21 +387,18 @@ impl Address {
     // When target_os != "solana", this should be opt-in so users
     // don't need the curve225519 dep.
     #[cfg(any(target_os = "solana", feature = "curve25519"))]
+    #[inline(always)]
     pub fn create_program_address(
         seeds: &[&[u8]],
         program_id: &Address,
     ) -> Result<Address, AddressError> {
-        use crate::MAX_SEEDS;
+        use crate::{MAX_SEEDS, MAX_SEED_LEN};
 
         if seeds.len() > MAX_SEEDS {
             return Err(AddressError::MaxSeedLengthExceeded);
         }
-        for seed in seeds.iter() {
-            use crate::MAX_SEED_LEN;
-
-            if seed.len() > MAX_SEED_LEN {
-                return Err(AddressError::MaxSeedLengthExceeded);
-            }
+        if seeds.iter().any(|seed| seed.len() > MAX_SEED_LEN) {
+            return Err(AddressError::MaxSeedLengthExceeded);
         }
 
         // Perform the calculation inline, calling this from within a program is
@@ -423,7 +423,7 @@ impl Address {
         // Call via a system call to perform the calculation
         #[cfg(target_os = "solana")]
         {
-            let mut bytes = [0; 32];
+            let mut bytes = core::mem::MaybeUninit::<Address>::uninit();
             let result = unsafe {
                 crate::syscalls::sol_create_program_address(
                     seeds as *const _ as *const u8,
@@ -433,7 +433,8 @@ impl Address {
                 )
             };
             match result {
-                SUCCESS => Ok(Address::from(bytes)),
+                // SAFETY: The syscall has initialized the bytes.
+                SUCCESS => Ok(unsafe { bytes.assume_init() }),
                 _ => Err(result.into()),
             }
         }
