@@ -2761,7 +2761,6 @@ name = "solana-account-view"
 version = "0.0.0"
 dependencies = [
  "solana-address",
- "solana-program-entrypoint",
  "solana-program-error",
 ]
 
