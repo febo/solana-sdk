@@ -3,19 +3,18 @@
 use core::{mem::MaybeUninit, ops::Deref, slice::from_raw_parts};
 
 use crate::{
-    account_info::{AccountInfo, BorrowState},
+    account_view::AccountView,
+    address::Address,
     hint::unlikely,
     instruction::{Account, Instruction, Signer},
     program_error::ProgramError,
     ProgramResult,
 };
-use solana_account_view::AccountView;
-use solana_address::Address;
 
 /// Maximum number of accounts that can be passed to a cross-program invocation.
 pub const MAX_CPI_ACCOUNTS: usize = 64;
 
-/// Invoke a cross-program instruction from an array of `AccountInfo`s.
+/// Invoke a cross-program instruction from an array of `AccountView`s.
 ///
 /// This function is a convenience wrapper around the [`invoke_signed`] function
 /// with the signers' seeds set to an empty slice.
@@ -27,19 +26,19 @@ pub const MAX_CPI_ACCOUNTS: usize = 64;
 ///
 /// # Important
 ///
-/// The accounts on the `account_infos` slice must be in the same order as the
+/// The accounts on the `account_views` slice must be in the same order as the
 /// `accounts` field of the `instruction`. When the instruction has duplicated
 /// accounts, it is necessary to pass a duplicated reference to the same account
-/// to maintain the 1:1 relationship between `account_infos` and `accounts`.
+/// to maintain the 1:1 relationship between `account_views` and `accounts`.
 #[inline(always)]
 pub fn invoke<const ACCOUNTS: usize>(
     instruction: &Instruction,
-    account_infos: &[&AccountInfo; ACCOUNTS],
+    account_views: &[&AccountView; ACCOUNTS],
 ) -> ProgramResult {
-    invoke_signed::<ACCOUNTS>(instruction, account_infos, &[])
+    invoke_signed::<ACCOUNTS>(instruction, account_views, &[])
 }
 
-/// Invoke a cross-program instruction from a slice of `AccountInfo`s.
+/// Invoke a cross-program instruction from a slice of `AccountView`s.
 ///
 /// This function is a convenience wrapper around the [`invoke_signed_with_bounds`]
 /// function with the signers' seeds set to an empty slice.
@@ -60,49 +59,49 @@ pub fn invoke<const ACCOUNTS: usize>(
 ///
 /// # Important
 ///
-/// The accounts on the `account_infos` slice must be in the same order as the
+/// The accounts on the `account_views` slice must be in the same order as the
 /// `accounts` field of the `instruction`. When the instruction has duplicated
 /// accounts, it is necessary to pass a duplicated reference to the same account
-/// to maintain the 1:1 relationship between `account_infos` and `accounts`.
+/// to maintain the 1:1 relationship between `account_views` and `accounts`.
 #[inline(always)]
 pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize>(
     instruction: &Instruction,
-    account_infos: &[&AccountInfo],
+    account_views: &[&AccountView],
 ) -> ProgramResult {
-    invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_infos, &[])
+    invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_views, &[])
 }
 
-/// Invoke a cross-program instruction from a slice of `AccountInfo`s.
+/// Invoke a cross-program instruction from a slice of `AccountView`s.
 ///
 /// This function is a convenience wrapper around the [`slice_invoke_signed`]
 /// function with the signers' seeds set to an empty slice.
 ///
 /// Note that the maximum number of accounts that can be passed to a cross-program
 /// invocation is defined by the [`MAX_CPI_ACCOUNTS`] constant. Even if the slice
-/// of `AccountInfo`s has more accounts, only the number of accounts required by
+/// of `AccountView`s has more accounts, only the number of accounts required by
 /// the `instruction` will be used. If the number of accounts required by the
 /// instruction is greater than [`MAX_CPI_ACCOUNTS`], this function will return a
 /// [`ProgramError::InvalidArgument`] error.
 ///
 /// # Important
 ///
-/// The accounts on the `account_infos` slice must be in the same order as the
+/// The accounts on the `account_views` slice must be in the same order as the
 /// `accounts` field of the `instruction`. When the instruction has duplicated
 /// accounts, it is necessary to pass a duplicated reference to the same account
-/// to maintain the 1:1 relationship between `account_infos` and `accounts`.
+/// to maintain the 1:1 relationship between `account_views` and `accounts`.
 #[inline(always)]
-pub fn slice_invoke(instruction: &Instruction, account_infos: &[&AccountView]) -> ProgramResult {
-    slice_invoke_signed(instruction, account_infos, &[])
+pub fn slice_invoke(instruction: &Instruction, account_views: &[&AccountView]) -> ProgramResult {
+    slice_invoke_signed(instruction, account_views, &[])
 }
 
 /// Invoke a cross-program instruction with signatures from an array of
-/// `AccountInfo`s.
+/// `AccountView`s.
 ///
-/// This function performs validation of the `account_infos` slice to ensure that:
+/// This function performs validation of the `account_views` slice to ensure that:
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Address` matches the address in the `AccountMeta`.
+///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -119,33 +118,33 @@ pub fn slice_invoke(instruction: &Instruction, account_infos: &[&AccountView]) -
 ///
 /// # Important
 ///
-/// The accounts on the `account_infos` slice must be in the same order as the
+/// The accounts on the `account_views` slice must be in the same order as the
 /// `accounts` field of the `instruction`. When the instruction has duplicated
 /// accounts, it is necessary to pass a duplicated reference to the same account
-/// to maintain the 1:1 relationship between `account_infos` and `accounts`.
+/// to maintain the 1:1 relationship between `account_views` and `accounts`.
 #[inline(always)]
 pub fn invoke_signed<const ACCOUNTS: usize>(
     instruction: &Instruction,
-    account_infos: &[&AccountView; ACCOUNTS],
+    account_views: &[&AccountView; ACCOUNTS],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
-    // SAFETY: The array of `AccountInfo`s will be checked to ensure that it has
+    // SAFETY: The array of `AccountView`s will be checked to ensure that it has
     // the same number of accounts as the instruction – this indirectly validates
     // that the stack allocated account storage `ACCOUNTS` is sufficient for the
     // number of accounts expected by the instruction.
     unsafe {
-        inner_invoke_signed_with_bounds::<ACCOUNTS>(instruction, account_infos, signers_seeds)
+        inner_invoke_signed_with_bounds::<ACCOUNTS>(instruction, account_views, signers_seeds)
     }
 }
 
 /// Invoke a cross-program instruction with signatures from a slice of
-/// `AccountInfo`s.
+/// `AccountView`s.
 ///
-/// This function performs validation of the `account_infos` slice to ensure that:
+/// This function performs validation of the `account_views` slice to ensure that:
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Address` matches the address in the `AccountMeta`.
+///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -171,20 +170,20 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 ///
 /// # Important
 ///
-/// The accounts on the `account_infos` slice must be in the same order as the
+/// The accounts on the `account_views` slice must be in the same order as the
 /// `accounts` field of the `instruction`. When the instruction has duplicated
 /// accounts, it is necessary to pass a duplicated reference to the same account
-/// to maintain the 1:1 relationship between `account_infos` and `accounts`.
+/// to maintain the 1:1 relationship between `account_views` and `accounts`.
 #[inline(always)]
 pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     instruction: &Instruction,
-    account_infos: &[&AccountInfo],
+    account_views: &[&AccountView],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
     // Check that the stack allocated account storage `MAX_ACCOUNTS` is sufficient
     // for the number of accounts expected by the instruction.
     //
-    // The check for the slice of `AccountInfo`s not being less than the
+    // The check for the slice of `AccountView`s not being less than the
     // number of accounts expected by the instruction is done in
     // `invoke_signed_with_bounds`.
     if MAX_ACCOUNTS < instruction.accounts.len() {
@@ -193,18 +192,18 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
     // SAFETY: The stack allocated account storage `MAX_ACCOUNTS` was validated.
     unsafe {
-        inner_invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_infos, signers_seeds)
+        inner_invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_views, signers_seeds)
     }
 }
 
 /// Invoke a cross-program instruction with signatures from a slice of
-/// `AccountInfo`s.
+/// `AccountView`s.
 ///
-/// This function performs validation of the `account_infos` slice to ensure that:
+/// This function performs validation of the `account_views` slice to ensure that:
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Address` matches the address in the `AccountMeta`.
+///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -216,26 +215,26 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 ///
 /// Note that the maximum number of accounts that can be passed to a cross-program
 /// invocation is defined by the `MAX_CPI_ACCOUNTS` constant. Even if the slice
-/// of `AccountInfo`s has more accounts, only the number of accounts required by
+/// of `AccountView`s has more accounts, only the number of accounts required by
 /// the `instruction` will be used. If the number of accounts required by the
 /// instruction is greater than [`MAX_CPI_ACCOUNTS`], this function will return a
 /// [`ProgramError::InvalidArgument`] error.
 ///
 /// # Important
 ///
-/// The accounts on the `account_infos` slice must be in the same order as the
+/// The accounts on the `account_views` slice must be in the same order as the
 /// `accounts` field of the `instruction`. When the instruction has duplicated
 /// accounts, it is necessary to pass a duplicated reference to the same account
-/// to maintain the 1:1 relationship between `account_infos` and `accounts`.
+/// to maintain the 1:1 relationship between `account_views` and `accounts`.
 pub fn slice_invoke_signed(
     instruction: &Instruction,
-    account_infos: &[&AccountView],
+    account_views: &[&AccountView],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
     // Check that the stack allocated account storage `MAX_CPI_ACCOUNTS` is
     // sufficient for the number of accounts expected by the instruction.
     //
-    // The check for the slice of `AccountInfo`s not being less than the
+    // The check for the slice of `AccountView`s not being less than the
     // number of accounts expected by the instruction is done in
     // `invoke_signed_with_bounds`.
     if MAX_CPI_ACCOUNTS < instruction.accounts.len() {
@@ -246,20 +245,20 @@ pub fn slice_invoke_signed(
     unsafe {
         inner_invoke_signed_with_bounds::<MAX_CPI_ACCOUNTS>(
             instruction,
-            account_infos,
+            account_views,
             signers_seeds,
         )
     }
 }
 
 /// Internal function to invoke a cross-program instruction with signatures
-/// from a slice of `AccountInfo`s performing borrow checking.
+/// from a slice of `AccountView`s performing borrow checking.
 ///
-/// This function performs validation of the `account_infos` slice to ensure that:
+/// This function performs validation of the `account_views` slice to ensure that:
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Address` matches the address in the `AccountMeta`.
+///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -272,50 +271,7 @@ pub fn slice_invoke_signed(
 #[inline(always)]
 unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     instruction: &Instruction,
-    account_infos: &[&AccountInfo],
-    signers_seeds: &[Signer],
-) -> ProgramResult {
-    // Check that the stack allocated account storage `MAX_CPI_ACCOUNTS` is
-    // sufficient for the number of accounts expected by the instruction.
-    //
-    // The check for the slice of `AccountInfo`s not being less than the
-    // number of accounts expected by the instruction is done in
-    // `invoke_signed_with_bounds`.
-    if MAX_CPI_ACCOUNTS < instruction.accounts.len() {
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    // SAFETY: The stack allocated account storage `MAX_CPI_ACCOUNTS` was validated.
-    unsafe {
-        inner_invoke_signed_with_bounds::<MAX_CPI_ACCOUNTS>(
-            instruction,
-            account_infos,
-            signers_seeds,
-        )
-    }
-}
-
-/// Internal function to invoke a cross-program instruction with signatures
-/// from a slice of `AccountInfo`s performing borrow checking.
-///
-/// This function performs validation of the `account_infos` slice to ensure that:
-///   1. It has at least as many accounts as the number of accounts expected by
-///      the instruction.
-///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Address` matches the address in the `AccountMeta`.
-///   3. The borrow state of the accounts is compatible with the mutability of the
-///      accounts in the instruction.
-///
-/// # Safety
-///
-/// This function is unsafe because it does not check that the stack allocated account
-/// storage `MAX_ACCOUNTS` is sufficient for the number of accounts expected by the
-/// instruction. Using a value of `MAX_ACCOUNTS` that is less than the number of accounts
-/// expected by the instruction will result in undefined behavior.
-#[inline(always)]
-unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
-    instruction: &Instruction,
-    account_infos: &[&AccountInfo],
+    account_views: &[&AccountView],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
     // Check that the number of `MAX_ACCOUNTS` provided is not greater than
@@ -329,42 +285,42 @@ unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
     // Check that the number of accounts provided is not less than
     // the number of accounts expected by the instruction.
-    if account_infos.len() < instruction.accounts.len() {
+    if account_views.len() < instruction.accounts.len() {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
     const UNINIT: MaybeUninit<Account> = MaybeUninit::<Account>::uninit();
     let mut accounts = [UNINIT; MAX_ACCOUNTS];
 
-    account_infos
+    account_views
         .iter()
         .zip(instruction.accounts.iter())
         .zip(accounts.iter_mut())
-        .try_for_each(|((account_info, account_meta), account)| {
+        .try_for_each(|((account_view, account_meta), account)| {
             // In order to check whether the borrow state is compatible
             // with the invocation, we need to check that we have the
             // correct account info and meta pair.
-            if unlikely(account_info.key() != account_meta.address) {
+            if unlikely(account_view.key() != account_meta.address) {
                 return Err(ProgramError::InvalidArgument);
             }
 
             // Determines the borrow state that would be invalid according
             // to their mutability on the instruction.
-            let invalid_state = if account_meta.is_writable {
+            let borrowed = if account_meta.is_writable {
                 // If the account is required to be writable, it cannot
                 //  be currently borrowed.
-                BorrowState::Borrowed
+                account_view.is_borrowed()
             } else {
                 // If the account is required to be read-only, it cannot
                 // be currently mutably borrowed.
-                BorrowState::MutablyBorrowed
+                account_view.is_borrowed_mut()
             };
 
-            if account_info.is_borrowed(invalid_state) {
+            if borrowed {
                 return Err(ProgramError::AccountBorrowFailed);
             }
 
-            account.write(Account::from(*account_info));
+            account.write(Account::from(*account_view));
 
             Ok(())
         })?;
@@ -389,7 +345,7 @@ unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 ///
 /// Note that the maximum number of accounts that can be passed to a cross-program
 /// invocation is defined by the `MAX_CPI_ACCOUNTS` constant. Even if the slice
-/// of `AccountInfo`s has more accounts, only the number of accounts required by
+/// of `AccountView`s has more accounts, only the number of accounts required by
 /// the `instruction` will be used.
 ///
 /// # Safety
@@ -411,7 +367,7 @@ pub unsafe fn invoke_unchecked(instruction: &Instruction, accounts: &[Account]) 
 ///
 /// Note that the maximum number of accounts that can be passed to a cross-program
 /// invocation is defined by the `MAX_CPI_ACCOUNTS` constant. Even if the slice
-/// of `AccountInfo`s has more accounts, only the number of accounts required by
+/// of `AccountView`s has more accounts, only the number of accounts required by
 /// the `instruction` will be used.
 ///
 /// # Safety
@@ -439,7 +395,7 @@ pub unsafe fn invoke_signed_unchecked(
         /// discarded immediately after.
         #[repr(C)]
         struct CInstruction<'a> {
-            /// Address of the program.
+            /// Public key of the program.
             program_id: *const Address,
 
             /// Accounts expected by the program instruction.
@@ -540,7 +496,7 @@ pub fn get_return_data() -> Option<ReturnData> {
             crate::syscalls::sol_get_return_data(
                 data.as_mut_ptr() as *mut u8,
                 data.len() as u64,
-                program_id.as_mut_ptr() as *mut Address as *mut u8,
+                program_id.as_mut_ptr() as *mut _ as *mut u8,
             )
         };
 
