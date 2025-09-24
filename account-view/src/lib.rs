@@ -96,6 +96,18 @@ pub struct AccountView {
 }
 
 impl AccountView {
+    /// Creates a new [`AccountView`] for a given raw account pointer.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `raw` pointer is valid and points
+    /// to memory containing an `Account` struct, immediately followed by
+    /// the account's data region.
+    #[inline(always)]
+    pub unsafe fn new_unchecked(raw: *mut Account) -> Self {
+        Self { raw }
+    }
+
     /// Address of the account.
     #[inline(always)]
     pub const fn key(&self) -> &Address {
