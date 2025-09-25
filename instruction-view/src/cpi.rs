@@ -64,9 +64,13 @@ impl<'a> From<&'a AccountView> for CpiAccount<'a> {
     fn from(account: &'a AccountView) -> Self {
         CpiAccount {
             key: account.key(),
-            lamports: &account.lamports(),
+            // SAFETY:  Dereferencing `account.account_ptr()` to access its
+            // `lamports` field.
+            lamports: unsafe { &(*account.account_ptr()).lamports },
             data_len: account.data_len() as u64,
             data: account.data_ptr(),
+            // SAFETY: `account.owner()` is not expected to be updated before
+            // the CPI.
             owner: unsafe { account.owner() },
             // The `rent_epoch` field is not present in the `AccountView` struct,
             // since the value occurs after the variable data of the account in
