@@ -458,6 +458,11 @@ impl AccountView {
         write_bytes(self.data_ptr().sub(48), 0, 48);
     }
 
+    /// Returns the raw pointer to the `Account` struct.
+    pub const fn account_ptr(&self) -> *const Account {
+        self.raw
+    }
+
     /// Returns the memory address of the account data.
     ///
     /// # Important
