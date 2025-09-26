@@ -1,6 +1,6 @@
 [package]
 name = "solana-account-view"
-description = "A lightweight representation of a runtime account"
+description = "Lightweight representation of a runtime account"
 documentation = "https://docs.rs/solana-account-view"
 version = "0.0.0"
 rust-version = "1.81.0"
@@ -9,6 +9,9 @@ repository = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 edition = { workspace = true }
+
+[features]
+copy = ["solana-address/copy"]
 
 [dependencies]
 solana-address = { workspace = true }
