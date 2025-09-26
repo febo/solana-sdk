@@ -19,6 +19,8 @@ use {
 pub const MAX_PERMITTED_DATA_INCREASE: usize = 1_024 * 10;
 
 /// Value to indicate that an account is not borrowed.
+///
+/// This value is the same as `solana_program_entrypoint::NON_DUP_MARKER`.
 pub const NOT_BORROWED: u8 = u8::MAX;
 
 /// Raw account data.
@@ -28,16 +30,19 @@ pub const NOT_BORROWED: u8 = u8::MAX;
 /// directly after the `Account` struct in memory, with its size specified
 /// by [`Account::data_len`].
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[cfg_attr(feature = "copy", derive(Copy))]
+#[derive(Clone, Default)]
 pub struct Account {
-    /// Borrow state for lamports and account data.
+    /// Borrow state for account data.
     ///
     /// This reuses the memory reserved for the duplicate flag in the
     /// account to track data borrows. It represents the numbers of
     /// borrows available. The value `0` indicates that the account
     /// data is mutably borrowed, while values between `2` and `255`
     /// indicate the number of immutable borrows that can still be
-    /// allocated.
+    /// allocated. An account's data can only be mutably borrowed
+    /// when there are no other active borrows, i.e., when this value
+    /// is equal to [`NOT_BORROWED`].
     pub borrow_state: u8,
 
     /// Indicates whether the transaction was signed by this account.
@@ -87,7 +92,8 @@ pub struct Account {
 /// These conditions must always hold for any `AccountView` created from
 /// a raw pointer.
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "copy", derive(Copy))]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct AccountView {
     /// Raw (pointer to) account data.
     ///
