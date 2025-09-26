@@ -32,6 +32,7 @@ alloc = ["solana-address/alloc"]
 rand = { workspace = true, optional = true }
 solana-address = { workspace = true, features = [
     "atomic",
+    "copy",
     "decode",
     "error",
     "sanitize",
