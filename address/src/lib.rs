@@ -257,7 +257,7 @@ impl Address {
         Ok(Address::from(hash.to_bytes()))
     }
 
-    pub const fn to_bytes(self) -> [u8; 32] {
+    pub const fn to_bytes(&self) -> [u8; 32] {
         self.0
     }
 
