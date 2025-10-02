@@ -62,8 +62,8 @@ pub struct Account {
     /// value is zero at the start of the instruction.
     pub resize_delta: i32,
 
-    /// Public key of the account.
-    pub key: Address,
+    /// Address of the account.
+    pub address: Address,
 
     /// Program that owns this account. Modifiable by programs.
     pub owner: Address,
@@ -116,9 +116,9 @@ impl AccountView {
 
     /// Address of the account.
     #[inline(always)]
-    pub const fn key(&self) -> &Address {
+    pub const fn address(&self) -> &Address {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
-        unsafe { &(*self.raw).key }
+        unsafe { &(*self.raw).address }
     }
 
     /// Return a reference to the address of the program that owns this account.
