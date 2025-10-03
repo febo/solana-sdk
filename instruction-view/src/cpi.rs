@@ -27,7 +27,7 @@ pub const MAX_CPI_ACCOUNTS: usize = 64;
 #[derive(Clone, Copy, Debug)]
 pub struct CpiAccount<'a> {
     // Address of the account.
-    key: *const Address,
+    address: *const Address,
 
     // Number of lamports owned by this account.
     lamports: *const u64,
@@ -63,14 +63,14 @@ pub struct CpiAccount<'a> {
 impl<'a> From<&'a AccountView> for CpiAccount<'a> {
     fn from(account: &'a AccountView) -> Self {
         CpiAccount {
-            key: account.key(),
+            address: account.address(),
             // SAFETY:  Dereferencing `account.account_ptr()` to access its
             // `lamports` field.
             lamports: unsafe { &(*account.account_ptr()).lamports },
             data_len: account.data_len() as u64,
             data: account.data_ptr(),
-            // SAFETY: `account.owner()` is not expected to be updated before
-            // the CPI.
+            // SAFETY: `account.owner()` is not expected to be updated between
+            // the creation of the CPI account and invocation of the program.
             owner: unsafe { account.owner() },
             // The `rent_epoch` field is not present in the `AccountView` struct,
             // since the value occurs after the variable data of the account in
@@ -129,7 +129,7 @@ impl Deref for Seed<'_> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        unsafe { core::slice::from_raw_parts(self.seed, self.len as usize) }
+        unsafe { from_raw_parts(self.seed, self.len as usize) }
     }
 }
 
@@ -173,17 +173,18 @@ impl<'a, 'b, const SIZE: usize> From<&'b [Seed<'a>; SIZE]> for Signer<'a, 'b> {
     }
 }
 
-/// Convenience macro for constructing a `[Seed; N]` array from a list of seeds.
+/// Convenience macro for constructing a `[Seed; N]` array from a list of seeds
+/// to create a [`Signer`].
 ///
 /// # Example
 ///
 /// Creating seeds array and signer for a PDA with a single seed and bump value:
 /// ```
-/// use pinocchio::{seeds, instruction::Signer};
 /// use solana_address::Address;
+/// use solana_instruction_view::{cpi::Signer, seeds};
 ///
 /// let pda_bump = 0xffu8;
-/// let pda_ref = &[pda_bump];  // prevent temporary value being freed
+/// let pda_ref = &[pda_bump];
 /// let example_key = Address::default();
 /// let seeds = seeds!(b"seed", example_key.as_ref(), pda_ref);
 /// let signer = Signer::from(&seeds);
@@ -192,7 +193,7 @@ impl<'a, 'b, const SIZE: usize> From<&'b [Seed<'a>; SIZE]> for Signer<'a, 'b> {
 macro_rules! seeds {
     ( $($seed:expr),* ) => {
         [$(
-            $crate::instruction::Seed::from($seed),
+            $crate::cpi::Seed::from($seed),
         )*]
     };
 }
@@ -287,7 +288,7 @@ pub fn slice_invoke(
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
+///      `Address` matches the `address` in the `AccountView`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -330,7 +331,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
+///      `Address` matches the `address` in the `AccountView`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -389,7 +390,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
+///      `Address` matches the `address` in the `AccountView`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -444,7 +445,7 @@ pub fn slice_invoke_signed(
 ///   1. It has at least as many accounts as the number of accounts expected by
 ///      the instruction.
 ///   2. The accounts match the expected accounts in the instruction, i.e., their
-///      `Pubkey` matches the `pubkey` in the `AccountMeta`.
+///      `Address` matches the `address` in the `AccountView`.
 ///   3. The borrow state of the accounts is compatible with the mutability of the
 ///      accounts in the instruction.
 ///
@@ -482,17 +483,17 @@ unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         .iter()
         .zip(instruction.accounts.iter())
         .zip(accounts.iter_mut())
-        .try_for_each(|((account_view, account_privilege), account)| {
+        .try_for_each(|((account_view, account_role), account)| {
             // In order to check whether the borrow state is compatible
             // with the invocation, we need to check that we have the
-            // correct account view and privilege pair.
-            if account_view.key() != account_privilege.address {
+            // correct account view and role pair.
+            if account_view.address() != account_role.address {
                 return Err(ProgramError::InvalidArgument);
             }
 
             // Determines the borrow state that would be invalid according
             // to their mutability on the instruction.
-            let borrowed = if account_privilege.is_writable {
+            let borrowed = if account_role.is_writable {
                 // If the account is required to be writable, it cannot
                 //  be currently borrowed.
                 account_view.is_borrowed()
@@ -511,7 +512,7 @@ unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
             Ok(())
         })?;
 
-    // SAFETY: At this point it is guaranteed that account priviledges are
+    // SAFETY: At this point it is guaranteed that account roles are
     // borrowable according to their mutability on the instruction.
     unsafe {
         invoke_signed_unchecked(
@@ -570,7 +571,7 @@ pub unsafe fn invoke_signed_unchecked(
 ) {
     #[cfg(target_os = "solana")]
     {
-        use crate::AccountPrivilege;
+        use crate::AccountRole;
 
         /// An `Instruction` as expected by `sol_invoke_signed_c`.
         ///
@@ -585,7 +586,7 @@ pub unsafe fn invoke_signed_unchecked(
             program_id: *const Address,
 
             /// Accounts expected by the program instruction.
-            accounts: *const AccountPrivilege<'a>,
+            accounts: *const AccountRole<'a>,
 
             /// Number of accounts expected by the program instruction.
             accounts_len: u64,
@@ -674,7 +675,7 @@ pub fn set_return_data(data: &[u8]) {
 pub fn get_return_data() -> Option<ReturnData> {
     #[cfg(target_os = "solana")]
     {
-        const UNINIT_BYTE: core::mem::MaybeUninit<u8> = core::mem::MaybeUninit::<u8>::uninit();
+        const UNINIT_BYTE: MaybeUninit<u8> = MaybeUninit::<u8>::uninit();
         let mut data = [UNINIT_BYTE; MAX_RETURN_DATA];
         let mut program_id = MaybeUninit::<Address>::uninit();
 
