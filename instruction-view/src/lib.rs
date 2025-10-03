@@ -25,14 +25,13 @@ where
     pub data: &'d [u8],
 
     /// Metadata describing account privileges that should be passed to the program.
-    pub accounts: &'b [AccountPrivilege<'a>],
+    pub accounts: &'b [AccountRole<'a>],
 }
 
-/// Describes a single account read or written by a program during instruction
-/// execution.
+/// Describes the role of an account during instruction execution.
 ///
 /// When constructing an [`InstructionView`], a list of all accounts that may be
-/// read or written during the execution of that instruction must be supplied.
+/// signer, read or written during the execution of that instruction must be supplied.
 /// Any account that may be mutated by the program during execution, either its
 /// data or metadata such as held lamports, must be writable.
 ///
@@ -41,7 +40,7 @@ where
 /// accounts which actually may be mutated are specified as writable.
 #[repr(C)]
 #[derive(Debug, Clone)]
-pub struct AccountPrivilege<'a> {
+pub struct AccountRole<'a> {
     /// Address of the account.
     pub address: &'a Address,
 
@@ -52,7 +51,7 @@ pub struct AccountPrivilege<'a> {
     pub is_signer: bool,
 }
 
-impl<'a> AccountPrivilege<'a> {
+impl<'a> AccountRole<'a> {
     /// Creates a new `AccountPrivilege`.
     #[inline(always)]
     pub const fn new(address: &'a Address, is_writable: bool, is_signer: bool) -> Self {
@@ -88,8 +87,12 @@ impl<'a> AccountPrivilege<'a> {
     }
 }
 
-impl<'a> From<&'a AccountView> for AccountPrivilege<'a> {
+impl<'a> From<&'a AccountView> for AccountRole<'a> {
     fn from(account: &'a AccountView) -> Self {
-        AccountPrivilege::new(account.key(), account.is_writable(), account.is_signer())
+        AccountRole::new(
+            account.address(),
+            account.is_writable(),
+            account.is_signer(),
+        )
     }
 }
