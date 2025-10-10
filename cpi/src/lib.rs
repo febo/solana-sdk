@@ -385,7 +385,7 @@ pub fn get_return_data() -> Option<(Pubkey, Vec<u8>)> {
             crate::syscalls::sol_get_return_data(
                 buf.as_mut_ptr(),
                 buf.len() as u64,
-                &mut program_id,
+                &mut program_id as *mut _ as *mut u8,
             )
         };
 
