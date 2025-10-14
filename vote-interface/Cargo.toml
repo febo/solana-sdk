@@ -59,7 +59,7 @@ serde_with = { workspace = true, features = ["macros"], optional = true }
 solana-clock = { workspace = true }
 solana-frozen-abi = { workspace = true, features = ["frozen-abi"], optional = true }
 solana-frozen-abi-macro = { workspace = true, features = ["frozen-abi"], optional = true }
-solana-hash = { workspace = true }
+solana-hash = { workspace = true, features = ["decode"] }
 solana-instruction = { workspace = true, features = ["std"] }
 solana-instruction-error = { workspace = true, features = ["num-traits"] }
 solana-pubkey = { workspace = true }
