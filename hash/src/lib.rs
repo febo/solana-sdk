@@ -43,6 +43,7 @@ pub const MAX_BASE58_LEN: usize = 44;
 #[cfg_attr(feature = "bytemuck", derive(Pod, Zeroable))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize,))]
 #[cfg_attr(feature = "copy", derive(Copy))]
+#[cfg_attr(not(feature = "decode"), derive(Debug))]
 #[derive(Clone, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct Hash(pub(crate) [u8; HASH_BYTES]);
