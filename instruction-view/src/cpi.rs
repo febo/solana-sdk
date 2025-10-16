@@ -1,11 +1,11 @@
 //! Cross-program invocation helpers.
 
-#[cfg(target_os = "solana")]
+#[cfg(any(target_os = "solana", target_arch = "bpf"))]
 pub use solana_define_syscall::{
     define_syscall,
     definitions::{sol_invoke_signed_c, sol_set_return_data},
 };
-#[cfg(target_os = "solana")]
+#[cfg(any(target_os = "solana", target_arch = "bpf"))]
 define_syscall!(fn sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u8) -> u64);
 
 use {
@@ -569,7 +569,7 @@ pub unsafe fn invoke_signed_unchecked(
     accounts: &[CpiAccount],
     signers_seeds: &[Signer],
 ) {
-    #[cfg(target_os = "solana")]
+    #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     {
         use crate::AccountRole;
 
@@ -617,7 +617,7 @@ pub unsafe fn invoke_signed_unchecked(
         };
     }
 
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(any(target_os = "solana", target_arch = "bpf")))]
     core::hint::black_box((instruction, accounts, signers_seeds));
 }
 
@@ -633,12 +633,12 @@ pub const MAX_RETURN_DATA: usize = 1024;
 /// retrieved by the caller with [`get_return_data`].
 #[inline(always)]
 pub fn set_return_data(data: &[u8]) {
-    #[cfg(target_os = "solana")]
+    #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     unsafe {
         sol_set_return_data(data.as_ptr(), data.len() as u64)
     };
 
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(any(target_os = "solana", target_arch = "bpf")))]
     core::hint::black_box(data);
 }
 
@@ -673,7 +673,7 @@ pub fn set_return_data(data: &[u8]) {
 /// [rdp]: https://docs.solanalabs.com/proposals/return-data
 #[inline]
 pub fn get_return_data() -> Option<ReturnData> {
-    #[cfg(target_os = "solana")]
+    #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     {
         const UNINIT_BYTE: MaybeUninit<u8> = MaybeUninit::<u8>::uninit();
         let mut data = [UNINIT_BYTE; MAX_RETURN_DATA];
@@ -698,7 +698,7 @@ pub fn get_return_data() -> Option<ReturnData> {
         }
     }
 
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(any(target_os = "solana", target_arch = "bpf")))]
     core::hint::black_box(None)
 }
 
