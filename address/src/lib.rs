@@ -361,6 +361,8 @@ macro_rules! address {
 ///
 /// Input: a single literal base58 string representation of a program's ID.
 ///
+/// This is intended for non-BPF targets where `const` can be used.
+///
 /// # Example
 ///
 /// ```
@@ -378,7 +380,7 @@ macro_rules! address {
 /// let my_id = Address::from_str("My11111111111111111111111111111111111111111").unwrap();
 /// assert_eq!(id(), my_id);
 /// ```
-#[cfg(feature = "decode")]
+#[cfg(all(feature = "decode", not(target_arch = "bpf")))]
 #[macro_export]
 macro_rules! declare_id {
     ($address:expr) => {
@@ -406,11 +408,14 @@ macro_rules! declare_id {
 }
 
 /// Same as [`declare_id`] except that it reports that this ID has been deprecated.
-#[cfg(feature = "decode")]
+///
+/// This is intended for non-BPF targets where `const` can be used.
+#[cfg(all(feature = "decode", not(target_arch = "bpf")))]
 #[macro_export]
 macro_rules! declare_deprecated_id {
     ($address:expr) => {
         /// The const ID.
+        #[no_mangle]
         pub const ID: $crate::Address = $crate::Address::from_str_const($address);
 
         /// Returns `true` if given address is the ID.
@@ -425,6 +430,92 @@ macro_rules! declare_deprecated_id {
         #[deprecated()]
         pub const fn id() -> $crate::Address {
             ID
+        }
+
+        #[cfg(test)]
+        #[test]
+        #[allow(deprecated)]
+        fn test_id() {
+            assert!(check_id(&id()));
+        }
+    };
+}
+
+/// Convenience macro to declare a static address and functions to interact with it.
+///
+/// Input: a single literal base58 string representation of a program's ID.
+///
+/// This is intended for BPF targets where `static` variables are used instead
+/// of `const`.
+///
+/// # Example
+///
+/// ```
+/// # // wrapper is used so that the macro invocation occurs in the item position
+/// # // rather than in the statement position which isn't allowed.
+/// use std::str::FromStr;
+/// use solana_address::{declare_id, Address};
+///
+/// # mod item_wrapper {
+/// #   use solana_address::declare_id;
+/// declare_id!("My11111111111111111111111111111111111111111");
+/// # }
+/// # use item_wrapper::id;
+///
+/// let my_id = Address::from_str("My11111111111111111111111111111111111111111").unwrap();
+/// assert_eq!(id(), my_id);
+/// ```
+#[cfg(all(feature = "decode", target_arch = "bpf"))]
+#[macro_export]
+macro_rules! declare_id {
+    ($address:expr) => {
+        /// The const program ID.
+        pub static ID: $crate::Address = $crate::Address::from_str_const($address);
+
+        /// Returns `true` if given address is the ID.
+        // TODO make this const once `derive_const` makes it out of nightly
+        // and we can `derive_const(PartialEq)` on `Address`.
+        pub fn check_id(id: &$crate::Address) -> bool {
+            id == &ID
+        }
+
+        /// Returns the ID.
+        pub const fn id() -> $crate::Address {
+            $crate::Address::from_str_const($address)
+        }
+
+        #[cfg(test)]
+        #[test]
+        fn test_id() {
+            assert!(check_id(&id()));
+        }
+    };
+}
+
+/// Same as [`declare_id`] except that it reports that this ID has been deprecated.
+///
+/// This is intended for BPF targets where `static` variables are used instead
+/// of `const`.
+#[cfg(all(feature = "decode", target_arch = "bpf"))]
+#[macro_export]
+macro_rules! declare_deprecated_id {
+    ($address:expr) => {
+        /// The const ID.
+        #[no_mangle]
+        pub static ID: $crate::Address = $crate::Address::from_str_const($address);
+
+        /// Returns `true` if given address is the ID.
+        // TODO make this const once `derive_const` makes it out of nightly
+        // and we can `derive_const(PartialEq)` on `Address`.
+        #[deprecated()]
+        pub fn check_id(id: &$crate::Address) -> bool {
+            id == &ID
+        }
+
+        /// Returns the ID.
+        #[deprecated()]
+        pub const fn id() -> $crate::Address {
+            $crate::Address::from_str_const($address)
         }
 
         #[cfg(test)]
