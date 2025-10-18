@@ -20,8 +20,10 @@ atomic = ["dep:solana-atomic-u64"]
 borsh = ["dep:borsh"]
 bytemuck = ["copy", "dep:bytemuck", "dep:bytemuck_derive"]
 copy = []
+decode = ["dep:five8"]
 default = []
 frozen-abi = ["dep:solana-frozen-abi", "dep:solana-frozen-abi-macro", "std"]
+sanitize = ["dep:solana-sanitize"]
 serde = ["dep:serde", "dep:serde_derive"]
 std = ["borsh?/std", "serde?/std"]
 
@@ -29,17 +31,17 @@ std = ["borsh?/std", "serde?/std"]
 borsh = { workspace = true, optional = true }
 bytemuck = { workspace = true, optional = true }
 bytemuck_derive = { workspace = true, optional = true }
-five8 = { workspace = true }
+five8 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_derive = { workspace = true, optional = true }
 solana-atomic-u64 = { workspace = true, optional = true }
 solana-frozen-abi = { workspace = true, optional = true, features = ["frozen-abi"] }
 solana-frozen-abi-macro = { workspace = true, optional = true, features = ["frozen-abi"] }
-solana-sanitize = { workspace = true }
+solana-sanitize = { workspace = true, optional = true }
 
 [dev-dependencies]
 bs58 = { workspace = true, default-features = false, features = ["alloc"] }
-solana-hash = { path = ".", features = ["atomic", "copy"] }
+solana-hash = { path = ".", features = ["atomic", "copy", "decode"] }
 
 [lints]
 workspace = true

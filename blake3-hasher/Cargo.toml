@@ -18,7 +18,7 @@ rustdoc-args = ["--cfg=docsrs"]
 blake3 = ["dep:blake3"]
 
 [dependencies]
-solana-hash = { workspace = true }
+solana-hash = { workspace = true, features = ["decode"] }
 
 [target.'cfg(not(target_os = "solana"))'.dependencies]
 blake3 = { workspace = true, optional = true }
