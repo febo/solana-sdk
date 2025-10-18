@@ -2,6 +2,7 @@
 
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![allow(clippy::arithmetic_side_effects)]
 
 use {
     core::{
@@ -117,7 +118,7 @@ impl AccountView {
 
     /// Address of the account.
     #[inline(always)]
-    pub const fn address(&self) -> &Address {
+    pub fn address(&self) -> &Address {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { &(*self.raw).address }
     }
@@ -132,21 +133,21 @@ impl AccountView {
     /// which can be modified by `assign` and `close` methods. It is undefined
     /// behavior to use this reference after the account has been modified.
     #[inline(always)]
-    pub const unsafe fn owner(&self) -> &Address {
+    pub unsafe fn owner(&self) -> &Address {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { &(*self.raw).owner }
     }
 
     /// Indicate whether the transaction was signed by this account.
     #[inline(always)]
-    pub const fn is_signer(&self) -> bool {
+    pub fn is_signer(&self) -> bool {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (*self.raw).is_signer != 0 }
     }
 
     /// Indicate whether the account is writable.
     #[inline(always)]
-    pub const fn is_writable(&self) -> bool {
+    pub fn is_writable(&self) -> bool {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (*self.raw).is_writable != 0 }
     }
@@ -155,14 +156,14 @@ impl AccountView {
     ///
     /// Program accounts are always read-only.
     #[inline(always)]
-    pub const fn executable(&self) -> bool {
+    pub fn executable(&self) -> bool {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (*self.raw).executable != 0 }
     }
 
     /// Return the size of the data in the account.
     #[inline(always)]
-    pub const fn data_len(&self) -> usize {
+    pub fn data_len(&self) -> usize {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (*self.raw).data_len as usize }
     }
@@ -173,21 +174,21 @@ impl AccountView {
     /// This value will be different than zero if the account has been
     /// resized during the current instruction.
     #[inline(always)]
-    pub const fn resize_delta(&self) -> i32 {
+    pub fn resize_delta(&self) -> i32 {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (*self.raw).resize_delta }
     }
 
     /// Return the lamports in the account.
     #[inline(always)]
-    pub const fn lamports(&self) -> u64 {
+    pub fn lamports(&self) -> u64 {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (*self.raw).lamports }
     }
 
     /// Set the lamports in the account.
     #[inline(always)]
-    pub const fn set_lamports(&self, lamports: u64) {
+    pub fn set_lamports(&self, lamports: u64) {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe {
             (*self.raw).lamports = lamports;
@@ -198,7 +199,7 @@ impl AccountView {
     ///
     /// An account is considered empty if the data length is zero.
     #[inline(always)]
-    pub const fn is_data_empty(&self) -> bool {
+    pub fn is_data_empty(&self) -> bool {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         self.data_len() == 0
     }
@@ -259,7 +260,7 @@ impl AccountView {
 
     /// Tries to get a read-only reference to the data field, failing if the field
     /// is already mutable borrowed or if `7` borrows already exist.
-    pub fn try_borrow_data(&self) -> Result<Ref<[u8]>, ProgramError> {
+    pub fn try_borrow_data(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
         // check if the account data is already borrowed
         self.can_borrow_data()?;
 
@@ -282,7 +283,7 @@ impl AccountView {
 
     /// Tries to get a mutable reference to the data field, failing if the field
     /// is already borrowed in any form.
-    pub fn try_borrow_data_mut(&self) -> Result<RefMut<[u8]>, ProgramError> {
+    pub fn try_borrow_data_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         // check if the account data is already borrowed
         self.can_borrow_data_mut()?;
 
@@ -441,10 +442,9 @@ impl AccountView {
     /// The lamports must be moved from the account prior to closing it to prevent
     /// an unbalanced instruction error.
     ///
-    /// If [`Self::realloc`] or [`Self::resize`] are called after closing the account,
-    /// they might incorrectly return an error for going over the limit if the account
-    /// previously had space allocated since this method does not update the
-    /// [`Self::resize_delta`] value.
+    /// If [`Self::resize`] is called after closing the account, it might incorrectly
+    /// return an error for going over the limit if the account previously had space
+    /// allocated since this method does not update the [`Self::resize_delta`] value.
     ///
     /// # Safety
     ///
