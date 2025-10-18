@@ -6,6 +6,7 @@
 //! instead of owning the required data.
 
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "cpi")]
 pub mod cpi;
