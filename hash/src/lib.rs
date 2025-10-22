@@ -7,19 +7,19 @@ use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 extern crate std;
 #[cfg(feature = "bytemuck")]
 use bytemuck_derive::{Pod, Zeroable};
+#[cfg(feature = "decode")]
+use core::{
+    fmt,
+    str::{from_utf8_unchecked, FromStr},
+};
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
+#[cfg(feature = "sanitize")]
+use solana_sanitize::Sanitize;
 #[cfg(feature = "borsh")]
 extern crate alloc;
 #[cfg(feature = "borsh")]
 use alloc::string::ToString;
-use {
-    core::{
-        fmt,
-        str::{from_utf8_unchecked, FromStr},
-    },
-    solana_sanitize::Sanitize,
-};
 
 /// Size of a hash in bytes.
 pub const HASH_BYTES: usize = 32;
@@ -43,10 +43,12 @@ pub const MAX_BASE58_LEN: usize = 44;
 #[cfg_attr(feature = "bytemuck", derive(Pod, Zeroable))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize,))]
 #[cfg_attr(feature = "copy", derive(Copy))]
+#[cfg_attr(not(feature = "decode"), derive(Debug))]
 #[derive(Clone, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct Hash(pub(crate) [u8; HASH_BYTES]);
 
+#[cfg(feature = "sanitize")]
 impl Sanitize for Hash {}
 
 impl From<[u8; HASH_BYTES]> for Hash {
@@ -61,6 +63,7 @@ impl AsRef<[u8]> for Hash {
     }
 }
 
+#[cfg(feature = "decode")]
 fn write_as_base58(f: &mut fmt::Formatter, h: &Hash) -> fmt::Result {
     let mut out = [0u8; MAX_BASE58_LEN];
     let len = five8::encode_32(&h.0, &mut out) as usize;
@@ -69,26 +72,31 @@ fn write_as_base58(f: &mut fmt::Formatter, h: &Hash) -> fmt::Result {
     f.write_str(as_str)
 }
 
+#[cfg(feature = "decode")]
 impl fmt::Debug for Hash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write_as_base58(f, self)
     }
 }
 
+#[cfg(feature = "decode")]
 impl fmt::Display for Hash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write_as_base58(f, self)
     }
 }
 
+#[cfg(feature = "decode")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseHashError {
     WrongSize,
     Invalid,
 }
 
+#[cfg(feature = "decode")]
 impl core::error::Error for ParseHashError {}
 
+#[cfg(feature = "decode")]
 impl fmt::Display for ParseHashError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -98,6 +106,7 @@ impl fmt::Display for ParseHashError {
     }
 }
 
+#[cfg(feature = "decode")]
 impl FromStr for Hash {
     type Err = ParseHashError;
 

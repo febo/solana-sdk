@@ -18,7 +18,7 @@ rustdoc-args = ["--cfg=docsrs"]
 sha3 = ["dep:sha3"]
 
 [dependencies]
-solana-hash = { workspace = true }
+solana-hash = { workspace = true, features = ["decode"] }
 
 [target.'cfg(not(target_os = "solana"))'.dependencies]
 sha3 = { workspace = true, optional = true }
