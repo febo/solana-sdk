@@ -30,11 +30,11 @@ pub const NOT_BORROWED: u8 = u8::MAX;
 /// This struct is wrapped by [`AccountView`], which provides safe access
 /// to account information. At runtime, the account's data is serialized
 /// directly after the `Account` struct in memory, with its size specified
-/// by [`Account::data_len`].
+/// by [`RuntimeAccount::data_len`].
 #[repr(C)]
 #[cfg_attr(feature = "copy", derive(Copy))]
 #[derive(Clone, Default)]
-pub struct Account {
+pub struct RuntimeAccount {
     /// Borrow state for account data.
     ///
     /// This reuses the memory reserved for the duplicate flag in the
@@ -100,7 +100,7 @@ pub struct AccountView {
     /// Raw (pointer to) account data.
     ///
     /// Note that this is a pointer can be shared across multiple `AccountView`.
-    raw: *mut Account,
+    raw: *mut RuntimeAccount,
 }
 
 impl AccountView {
@@ -112,7 +112,7 @@ impl AccountView {
     /// to memory containing an `Account` struct, immediately followed by
     /// the account's data region.
     #[inline(always)]
-    pub unsafe fn new_unchecked(raw: *mut Account) -> Self {
+    pub unsafe fn new_unchecked(raw: *mut RuntimeAccount) -> Self {
         Self { raw }
     }
 
@@ -467,7 +467,7 @@ impl AccountView {
     }
 
     /// Returns the raw pointer to the `Account` struct.
-    pub const fn account_ptr(&self) -> *const Account {
+    pub const fn account_ptr(&self) -> *const RuntimeAccount {
         self.raw
     }
 
@@ -483,7 +483,7 @@ impl AccountView {
     #[inline(always)]
     pub fn data_ptr(&self) -> *mut u8 {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
-        unsafe { (self.raw as *mut u8).add(size_of::<Account>()) }
+        unsafe { (self.raw as *mut u8).add(size_of::<RuntimeAccount>()) }
     }
 }
 
@@ -735,8 +735,8 @@ mod tests {
     #[test]
     fn test_borrow_data() {
         // 8-bytes aligned account data + 8 bytes of trailing data.
-        let mut data = [0u64; size_of::<Account>() / size_of::<u64>() + 1];
-        let account = data.as_mut_ptr() as *mut Account;
+        let mut data = [0u64; size_of::<RuntimeAccount>() / size_of::<u64>() + 1];
+        let account = data.as_mut_ptr() as *mut RuntimeAccount;
         unsafe { (*account).data_len = 8 };
 
         data[0] = NOT_BORROWED as u64;
@@ -819,7 +819,7 @@ mod tests {
         data[10] = 100;
 
         let account = AccountView {
-            raw: data.as_mut_ptr() as *const _ as *mut Account,
+            raw: data.as_mut_ptr() as *const _ as *mut RuntimeAccount,
         };
 
         assert_eq!(account.data_len(), 100);
