@@ -205,12 +205,6 @@ impl AccountView {
 
     /// Checks if the account is owned by the given program.
     #[inline(always)]
-    pub fn is_owned_by(&self, program: &Pubkey) -> bool {
-        unsafe { &(*self.raw).owner == program }
-    }
-
-    /// Checks if the account is owned by the given program.
-    #[inline(always)]
     pub fn owned_by(&self, program: &Address) -> bool {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { self.owner() == program }
@@ -360,7 +354,7 @@ impl AccountView {
     ///
     /// The account data can be increased by up to [`MAX_PERMITTED_DATA_INCREASE`] bytes
     ///
-    /// # Important
+    /// # Safety
     ///
     /// This method is unsafe because it does not check if the account data is already
     /// borrowed. The caller must guarantee that there are no active borrows to the account
