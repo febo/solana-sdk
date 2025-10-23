@@ -5,7 +5,6 @@ pub use solana_define_syscall::{
     define_syscall,
     definitions::{sol_get_return_data, sol_invoke_signed_c, sol_set_return_data},
 };
-
 use {
     crate::InstructionView,
     core::{marker::PhantomData, mem::MaybeUninit, ops::Deref, slice::from_raw_parts},
@@ -525,13 +524,13 @@ unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
 /// Invoke a cross-program instruction but don't enforce Rust's aliasing rules.
 ///
-/// This function does not check that [`Account`]s are properly borrowable.
+/// This function does not check that [`CpiAccount`]s are properly borrowable.
 /// Those checks consume CUs that this function avoids.
 ///
 /// Note that the maximum number of accounts that can be passed to a cross-program
-/// invocation is defined by the `MAX_CPI_ACCOUNTS` constant. Even if the slice
-/// of `AccountView`s has more accounts, only the number of accounts required by
-/// the `instruction` will be used.
+/// invocation is defined by the `MAX_CPI_ACCOUNTS` constant. Even if the `[CpiAccount]`
+/// slice has more accounts, only the number of accounts required by the `instruction`
+/// will be used.
 ///
 /// # Safety
 ///
@@ -547,13 +546,13 @@ pub unsafe fn invoke_unchecked(instruction: &InstructionView, accounts: &[CpiAcc
 /// Invoke a cross-program instruction with signatures but don't enforce Rust's
 /// aliasing rules.
 ///
-/// This function does not check that [`Account`]s are properly borrowable.
+/// This function does not check that [`CpiAccount`]s are properly borrowable.
 /// Those checks consume CUs that this function avoids.
 ///
 /// Note that the maximum number of accounts that can be passed to a cross-program
-/// invocation is defined by the `MAX_CPI_ACCOUNTS` constant. Even if the slice
-/// of `AccountView`s has more accounts, only the number of accounts required by
-/// the `instruction` will be used.
+/// invocation is defined by the `MAX_CPI_ACCOUNTS` constant. Even if the `[CpiAccount]`
+/// slice has more accounts, only the number of accounts required by the `instruction`
+/// will be used.
 ///
 /// # Safety
 ///
