@@ -1,11 +1,11 @@
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
+#[cfg(any(target_os = "solana", target_arch = "bpf"))]
+pub use solana_define_syscall::definitions::sol_sha256;
 use solana_hash::Hash;
 #[cfg(any(target_os = "solana", target_arch = "bpf"))]
-use {
-    core::mem::MaybeUninit, solana_define_syscall::definitions::sol_sha256, solana_hash::HASH_BYTES,
-};
+use {core::mem::MaybeUninit, solana_hash::HASH_BYTES};
 #[cfg(all(feature = "sha2", not(any(target_os = "solana", target_arch = "bpf"))))]
 use {
     sha2::{Digest, Sha256},
