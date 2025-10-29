@@ -1,18 +1,24 @@
 //! Hashing with the [blake3] hash function.
 //!
 //! [blake3]: https://github.com/BLAKE3-team/BLAKE3
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub use solana_hash::{Hash, ParseHashError, HASH_BYTES, MAX_BASE58_LEN};
 
 #[derive(Clone, Default)]
-#[cfg(all(feature = "blake3", not(target_os = "solana")))]
+#[cfg(all(
+    feature = "blake3",
+    not(any(target_os = "solana", target_arch = "bpf"))
+))]
 pub struct Hasher {
     hasher: blake3::Hasher,
 }
 
-#[cfg(all(feature = "blake3", not(target_os = "solana")))]
+#[cfg(all(
+    feature = "blake3",
+    not(any(target_os = "solana", target_arch = "bpf"))
+))]
 impl Hasher {
     pub fn hash(&mut self, val: &[u8]) {
         self.hasher.update(val);
@@ -28,11 +34,11 @@ impl Hasher {
 }
 
 /// Return a Blake3 hash for the given data.
-#[cfg_attr(target_os = "solana", inline(always))]
+#[cfg_attr(any(target_os = "solana", target_arch = "bpf"), inline(always))]
 pub fn hashv(vals: &[&[u8]]) -> Hash {
     // Perform the calculation inline, calling this from within a program is
     // not supported
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(any(target_os = "solana", target_arch = "bpf")))]
     {
         #[cfg(feature = "blake3")]
         {
@@ -47,7 +53,7 @@ pub fn hashv(vals: &[&[u8]]) -> Hash {
         }
     }
     // Call via a system call to perform the calculation
-    #[cfg(target_os = "solana")]
+    #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     {
         let mut hash_result = core::mem::MaybeUninit::<[u8; solana_hash::HASH_BYTES]>::uninit();
         // SAFETY: This is sound as sol_blake3 always fills all 32 bytes of our hash
@@ -63,7 +69,7 @@ pub fn hashv(vals: &[&[u8]]) -> Hash {
 }
 
 /// Return a Blake3 hash for the given data.
-#[cfg_attr(target_os = "solana", inline(always))]
+#[cfg_attr(any(target_os = "solana", target_arch = "bpf"), inline(always))]
 pub fn hash(val: &[u8]) -> Hash {
     hashv(&[val])
 }

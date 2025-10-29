@@ -3,7 +3,7 @@
 
 use solana_hash::Hash;
 #[cfg(any(target_os = "solana", target_arch = "bpf"))]
-pub use {
+use {
     core::mem::MaybeUninit, solana_define_syscall::definitions::sol_sha256, solana_hash::HASH_BYTES,
 };
 #[cfg(all(feature = "sha2", not(any(target_os = "solana", target_arch = "bpf"))))]
@@ -56,7 +56,7 @@ pub fn hashv(vals: &[&[u8]]) -> Hash {
     // Call via a system call to perform the calculation
     #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     {
-        let mut hash_result = core::mem::MaybeUninit::<[u8; solana_hash::HASH_BYTES]>::uninit();
+        let mut hash_result = MaybeUninit::<[u8; HASH_BYTES]>::uninit();
         // SAFETY: This is sound as sol_sha256 always fills all 32 bytes of our hash
         unsafe {
             sol_sha256(

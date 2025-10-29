@@ -87,7 +87,7 @@ impl Secp256k1Pubkey {
     }
 }
 
-#[cfg(target_os = "solana")]
+#[cfg(any(target_os = "solana", target_arch = "bpf"))]
 pub use solana_define_syscall::definitions::sol_secp256k1_recover;
 
 /// Recover the public key from a [secp256k1] ECDSA signature and
@@ -402,13 +402,13 @@ pub use solana_define_syscall::definitions::sol_secp256k1_recover;
 ///     Ok(())
 /// }
 /// ```
-#[cfg_attr(target_os = "solana", inline(always))]
+#[cfg_attr(any(target_os = "solana", target_arch = "bpf"), inline(always))]
 pub fn secp256k1_recover(
     hash: &[u8],
     recovery_id: u8,
     signature: &[u8],
 ) -> Result<Secp256k1Pubkey, Secp256k1RecoverError> {
-    #[cfg(target_os = "solana")]
+    #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     {
         let mut pubkey_buffer =
             core::mem::MaybeUninit::<[u8; SECP256K1_PUBLIC_KEY_LENGTH]>::uninit();
@@ -421,14 +421,15 @@ pub fn secp256k1_recover(
             )
         };
 
-        // SAFETY: This is sound as in our pass case, all 64 bytes of the pubkey are always initialized by sol_secp256k1_recover
+        // SAFETY: This is sound as in our pass case, all 64 bytes of the pubkey are
+        // always initialized by sol_secp256k1_recover
         match result {
             0 => Ok(Secp256k1Pubkey(unsafe { pubkey_buffer.assume_init() })),
             error => Err(Secp256k1RecoverError::from(error)),
         }
     }
 
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(any(target_os = "solana", target_arch = "bpf")))]
     {
         const HASH_SIZE: usize = 32;
         if hash.len() != HASH_SIZE {

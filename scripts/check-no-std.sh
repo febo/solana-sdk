@@ -10,6 +10,7 @@ cd "${src_root}"
 no_std_crates=(
   -p solana-address
   -p solana-account-view
+  -p solana-blake3-hasher
   -p solana-clock
   -p solana-commitment-config
   -p solana-define-syscall
@@ -17,6 +18,7 @@ no_std_crates=(
   -p solana-epoch-rewards
   -p solana-fee-calculator
   -p solana-hash
+  -p solana-keccak-hasher
   -p solana-msg
   -p solana-program-error
   -p solana-program-log

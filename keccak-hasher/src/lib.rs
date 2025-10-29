@@ -1,20 +1,20 @@
 //! Hashing with the [keccak] (SHA-3) hash function.
 //!
 //! [keccak]: https://keccak.team/keccak.html
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-#[cfg(all(feature = "sha3", not(target_os = "solana")))]
+#[cfg(all(feature = "sha3", not(any(target_os = "solana", target_arch = "bpf"))))]
 use sha3::{Digest, Keccak256};
 pub use solana_hash::{Hash, ParseHashError, HASH_BYTES, MAX_BASE58_LEN};
 
 #[derive(Clone, Default)]
-#[cfg(all(feature = "sha3", not(target_os = "solana")))]
+#[cfg(all(feature = "sha3", not(any(target_os = "solana", target_arch = "bpf"))))]
 pub struct Hasher {
     hasher: Keccak256,
 }
 
-#[cfg(all(feature = "sha3", not(target_os = "solana")))]
+#[cfg(all(feature = "sha3", not(any(target_os = "solana", target_arch = "bpf"))))]
 impl Hasher {
     pub fn hash(&mut self, val: &[u8]) {
         self.hasher.update(val);
@@ -30,11 +30,11 @@ impl Hasher {
 }
 
 /// Return a Keccak256 hash for the given data.
-#[cfg_attr(target_os = "solana", inline(always))]
+#[cfg_attr(any(target_os = "solana", target_arch = "bpf"), inline(always))]
 pub fn hashv(vals: &[&[u8]]) -> Hash {
     // Perform the calculation inline, calling this from within a program is
     // not supported
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(any(target_os = "solana", target_arch = "bpf")))]
     {
         #[cfg(feature = "sha3")]
         {
@@ -49,7 +49,7 @@ pub fn hashv(vals: &[&[u8]]) -> Hash {
         }
     }
     // Call via a system call to perform the calculation
-    #[cfg(target_os = "solana")]
+    #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     {
         let mut hash_result = core::mem::MaybeUninit::<[u8; solana_hash::HASH_BYTES]>::uninit();
         // SAFETY: This is sound as sol_keccak256 always fills all 32 bytes of our hash
@@ -65,7 +65,7 @@ pub fn hashv(vals: &[&[u8]]) -> Hash {
 }
 
 /// Return a Keccak256 hash for the given data.
-#[cfg_attr(target_os = "solana", inline(always))]
+#[cfg_attr(any(target_os = "solana", target_arch = "bpf"), inline(always))]
 pub fn hash(val: &[u8]) -> Hash {
     hashv(&[val])
 }

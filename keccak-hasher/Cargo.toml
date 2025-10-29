@@ -20,11 +20,11 @@ sha3 = ["dep:sha3"]
 [dependencies]
 solana-hash = { workspace = true, features = ["decode"] }
 
-[target.'cfg(not(target_os = "solana"))'.dependencies]
-sha3 = { workspace = true, optional = true }
-
-[target.'cfg(target_os = "solana")'.dependencies]
+[target.'cfg(any(target_os = "solana", target_arch = "bpf"))'.dependencies]
 solana-define-syscall = { workspace = true }
+
+[target.'cfg(not(any(target_os = "solana", target_arch = "bpf")))'.dependencies]
+sha3 = { workspace = true, optional = true }
 
 [lints]
 workspace = true
