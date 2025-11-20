@@ -317,11 +317,23 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     account_views: &[&AccountView; ACCOUNTS],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
+    // Check that the number of `ACCOUNTS` provided is not greater than
+    // the maximum number of accounts allowed.
+    const {
+        assert!(
+            ACCOUNTS <= MAX_STATIC_CPI_ACCOUNTS,
+            "ACCOUNTS is greater than allowed MAX_STATIC_CPI_ACCOUNTS"
+        );
+    }
+
+    const UNINIT: MaybeUninit<CpiAccount> = MaybeUninit::<CpiAccount>::uninit();
+    let mut accounts = [UNINIT; ACCOUNTS];
+
     // SAFETY: The array of `AccountView`s will be checked to ensure that it has
     // the same number of accounts as the instruction – this indirectly validates
     // that the stack allocated account storage `ACCOUNTS` is sufficient for the
     // number of accounts expected by the instruction.
-    unsafe { _invoke_with_bounds_signed::<ACCOUNTS>(instruction, account_views, signers_seeds) }
+    unsafe { _invoke_with_slice_signed(instruction, account_views, &mut accounts, signers_seeds) }
 }
 
 /// Invoke a cross-program instruction with signatures from a slice of
@@ -367,18 +379,27 @@ pub fn invoke_with_bounds_signed<const MAX_ACCOUNTS: usize>(
     account_views: &[&AccountView],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
+    // Check that the number of `MAX_ACCOUNTS` provided is not greater than
+    // the maximum number of static accounts allowed.
+    const {
+        assert!(
+            MAX_ACCOUNTS <= MAX_STATIC_CPI_ACCOUNTS,
+            "MAX_ACCOUNTS is greater than allowed MAX_STATIC_CPI_ACCOUNTS"
+        );
+    }
+
     // Check that the stack allocated account storage `MAX_ACCOUNTS` is sufficient
     // for the number of accounts expected by the instruction.
-    //
-    // The check for the slice of `AccountView`s not being less than the
-    // number of accounts expected by the instruction is done in
-    // `invoke_signed_with_bounds`.
     if MAX_ACCOUNTS < instruction.accounts.len() {
         return Err(ProgramError::InvalidArgument);
     }
 
-    // SAFETY: The stack allocated account storage `MAX_ACCOUNTS` was validated.
-    unsafe { _invoke_with_bounds_signed::<MAX_ACCOUNTS>(instruction, account_views, signers_seeds) }
+    const UNINIT: MaybeUninit<CpiAccount> = MaybeUninit::<CpiAccount>::uninit();
+    let mut accounts = [UNINIT; MAX_ACCOUNTS];
+
+    // SAFETY: The stack allocated account storage `MAX_ACCOUNTS` was validated
+    // to be sufficient for the number of accounts expected by the instruction.
+    unsafe { _invoke_with_slice_signed(instruction, account_views, &mut accounts, signers_seeds) }
 }
 
 /// Invoke a cross-program instruction with signatures from a slice of
@@ -407,6 +428,7 @@ pub fn invoke_with_bounds_signed<const MAX_ACCOUNTS: usize>(
 /// `accounts` field of the `instruction`. When the instruction has duplicated
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
+#[inline(always)]
 pub fn invoke_with_slice_signed(
     instruction: &InstructionView,
     account_views: &[&AccountView],
@@ -418,58 +440,11 @@ pub fn invoke_with_slice_signed(
         return Err(ProgramError::InvalidArgument);
     }
 
-    // Check that the number of accounts provided is not less than
-    // the number of accounts expected by the instruction.
-    if account_views.len() < instruction.accounts.len() {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    }
-
     let mut accounts = Box::<[CpiAccount]>::new_uninit_slice(instruction.accounts.len());
 
-    account_views
-        .iter()
-        .zip(instruction.accounts.iter())
-        .zip(accounts.iter_mut())
-        .try_for_each(|((account_view, instruction_account), account)| {
-            // In order to check whether the borrow state is compatible
-            // with the invocation, we need to check that we have the
-            // correct account view and instruction account pair.
-            if account_view.address() != instruction_account.address {
-                return Err(ProgramError::InvalidArgument);
-            }
-
-            // Determines the borrow state that would be invalid according
-            // to their mutability on the instruction.
-            let borrowed = if instruction_account.is_writable {
-                // If the account is required to be writable, it cannot
-                //  be currently borrowed.
-                account_view.is_borrowed()
-            } else {
-                // If the account is required to be read-only, it cannot
-                // be currently mutably borrowed.
-                account_view.is_borrowed_mut()
-            };
-
-            if borrowed {
-                return Err(ProgramError::AccountBorrowFailed);
-            }
-
-            account.write(CpiAccount::from(*account_view));
-
-            Ok(())
-        })?;
-
-    // SAFETY: At this point it is guaranteed that instruction accounts are
-    // borrowable according to their mutability on the instruction.
-    unsafe {
-        invoke_signed_unchecked(
-            instruction,
-            from_raw_parts(accounts.as_ptr() as _, instruction.accounts.len()),
-            signers_seeds,
-        );
-    }
-
-    Ok(())
+    // SAFETY: The allocated `accounts` slice has the same size as the expected number
+    // of instruction accounts.
+    unsafe { _invoke_with_slice_signed(instruction, account_views, &mut accounts, signers_seeds) }
 }
 
 /// Internal function to invoke a cross-program instruction with signatures
@@ -485,33 +460,25 @@ pub fn invoke_with_slice_signed(
 ///
 /// # Safety
 ///
-/// This function is unsafe because it does not check that the stack allocated account
-/// storage `MAX_ACCOUNTS` is sufficient for the number of accounts expected by the
-/// instruction. Using a value of `MAX_ACCOUNTS` that is less than the number of accounts
-/// expected by the instruction will result in undefined behavior.
+/// This function is unsafe because it does not check that `accounts` is sufficiently
+/// large for the number of accounts expected by the instruction. Using an `accounts` slice
+/// shorter than the number of accounts expected by the instruction will result in
+/// undefined behavior.
 #[inline(always)]
-unsafe fn _invoke_with_bounds_signed<const MAX_ACCOUNTS: usize>(
+unsafe fn _invoke_with_slice_signed<'account, 'cpi>(
     instruction: &InstructionView,
-    account_views: &[&AccountView],
+    account_views: &[&'account AccountView],
+    accounts: &mut [MaybeUninit<CpiAccount<'cpi>>],
     signers_seeds: &[Signer],
-) -> ProgramResult {
-    // Check that the number of `MAX_ACCOUNTS` provided is not greater than
-    // the maximum number of accounts allowed.
-    const {
-        assert!(
-            MAX_ACCOUNTS <= MAX_STATIC_CPI_ACCOUNTS,
-            "MAX_ACCOUNTS is greater than allowed MAX_STATIC_CPI_ACCOUNTS"
-        );
-    }
-
+) -> ProgramResult
+where
+    'account: 'cpi,
+{
     // Check that the number of accounts provided is not less than
     // the number of accounts expected by the instruction.
     if account_views.len() < instruction.accounts.len() {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
-
-    const UNINIT: MaybeUninit<CpiAccount> = MaybeUninit::<CpiAccount>::uninit();
-    let mut accounts = [UNINIT; MAX_ACCOUNTS];
 
     account_views
         .iter()
