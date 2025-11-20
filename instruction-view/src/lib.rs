@@ -25,11 +25,11 @@ where
     /// Data expected by the program instruction.
     pub data: &'d [u8],
 
-    /// Metadata describing account privileges that should be passed to the program.
-    pub accounts: &'b [AccountRole<'a>],
+    /// Metadata describing the accounts that should be passed to the program.
+    pub accounts: &'b [InstructionAccount<'a>],
 }
 
-/// Describes the role of an account during instruction execution.
+/// Describes an account during instruction execution.
 ///
 /// When constructing an [`InstructionView`], a list of all accounts that may be
 /// signer, read or written during the execution of that instruction must be supplied.
@@ -41,7 +41,7 @@ where
 /// accounts which actually may be mutated are specified as writable.
 #[repr(C)]
 #[derive(Debug, Clone)]
-pub struct AccountRole<'a> {
+pub struct InstructionAccount<'a> {
     /// Address of the account.
     pub address: &'a Address,
 
@@ -52,8 +52,8 @@ pub struct AccountRole<'a> {
     pub is_signer: bool,
 }
 
-impl<'a> AccountRole<'a> {
-    /// Creates a new `AccountPrivilege`.
+impl<'a> InstructionAccount<'a> {
+    /// Creates a new `InstructionAccount`.
     #[inline(always)]
     pub const fn new(address: &'a Address, is_writable: bool, is_signer: bool) -> Self {
         Self {
@@ -63,34 +63,34 @@ impl<'a> AccountRole<'a> {
         }
     }
 
-    /// Creates a new read-only `AccountPrivilege`.
+    /// Creates a new read-only `InstructionAccount`.
     #[inline(always)]
     pub const fn readonly(address: &'a Address) -> Self {
         Self::new(address, false, false)
     }
 
-    /// Creates a new writable `AccountPrivilege`.
+    /// Creates a new writable `InstructionAccount`.
     #[inline(always)]
     pub const fn writable(address: &'a Address) -> Self {
         Self::new(address, true, false)
     }
 
-    /// Creates a new read-only and signer `AccountPrivilege`.
+    /// Creates a new read-only and signer `InstructionAccount`.
     #[inline(always)]
     pub const fn readonly_signer(address: &'a Address) -> Self {
         Self::new(address, false, true)
     }
 
-    /// Creates a new writable and signer `AccountPrivilege`.
+    /// Creates a new writable and signer `InstructionAccount`.
     #[inline(always)]
     pub const fn writable_signer(address: &'a Address) -> Self {
         Self::new(address, true, true)
     }
 }
 
-impl<'a> From<&'a AccountView> for AccountRole<'a> {
+impl<'a> From<&'a AccountView> for InstructionAccount<'a> {
     fn from(account: &'a AccountView) -> Self {
-        AccountRole::new(
+        InstructionAccount::new(
             account.address(),
             account.is_writable(),
             account.is_signer(),

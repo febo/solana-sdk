@@ -23,31 +23,31 @@ pub const MAX_CPI_ACCOUNTS: usize = 64;
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct CpiAccount<'a> {
-    // Address of the account.
+    /// Address of the account.
     address: *const Address,
 
-    // Number of lamports owned by this account.
+    /// Number of lamports owned by this account.
     lamports: *const u64,
 
-    // Length of data in bytes.
+    /// Length of data in bytes.
     data_len: u64,
 
-    // On-chain data within this account.
+    /// On-chain data within this account.
     data: *const u8,
 
-    // Program that owns this account.
+    /// Program that owns this account.
     owner: *const Address,
 
-    // The epoch at which this account will next owe rent.
+    /// The epoch at which this account will next owe rent.
     rent_epoch: u64,
 
-    // Transaction was signed by this account's key?
+    /// Transaction was signed by this account's key?
     is_signer: bool,
 
-    // Is the account writable?
+    /// Is the account writable?
     is_writable: bool,
 
-    // This account's data contains a loaded program (and is now read-only).
+    /// This account's data contains a loaded program (and is now read-only).
     executable: bool,
 
     /// The pointers to the `AccountView` data are only valid for as long as the
@@ -480,17 +480,17 @@ unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         .iter()
         .zip(instruction.accounts.iter())
         .zip(accounts.iter_mut())
-        .try_for_each(|((account_view, account_role), account)| {
+        .try_for_each(|((account_view, instruction_account), account)| {
             // In order to check whether the borrow state is compatible
             // with the invocation, we need to check that we have the
-            // correct account view and role pair.
-            if account_view.address() != account_role.address {
+            // correct account view and instruction account pair.
+            if account_view.address() != instruction_account.address {
                 return Err(ProgramError::InvalidArgument);
             }
 
             // Determines the borrow state that would be invalid according
             // to their mutability on the instruction.
-            let borrowed = if account_role.is_writable {
+            let borrowed = if instruction_account.is_writable {
                 // If the account is required to be writable, it cannot
                 //  be currently borrowed.
                 account_view.is_borrowed()
@@ -509,7 +509,7 @@ unsafe fn inner_invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
             Ok(())
         })?;
 
-    // SAFETY: At this point it is guaranteed that account roles are
+    // SAFETY: At this point it is guaranteed that instruction accounts are
     // borrowable according to their mutability on the instruction.
     unsafe {
         invoke_signed_unchecked(
@@ -568,7 +568,7 @@ pub unsafe fn invoke_signed_unchecked(
 ) {
     #[cfg(any(target_os = "solana", target_arch = "bpf"))]
     {
-        use crate::AccountRole;
+        use crate::InstructionAccount;
 
         /// An `Instruction` as expected by `sol_invoke_signed_c`.
         ///
@@ -583,7 +583,7 @@ pub unsafe fn invoke_signed_unchecked(
             program_id: *const Address,
 
             /// Accounts expected by the program instruction.
-            accounts: *const AccountRole<'a>,
+            accounts: *const InstructionAccount<'a>,
 
             /// Number of accounts expected by the program instruction.
             accounts_len: u64,
@@ -721,13 +721,5 @@ impl ReturnData {
     /// Return the data set by the program.
     pub fn as_slice(&self) -> &[u8] {
         unsafe { from_raw_parts(self.data.as_ptr() as _, self.size) }
-    }
-}
-
-impl Deref for ReturnData {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
     }
 }
