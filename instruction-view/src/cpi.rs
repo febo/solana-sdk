@@ -1,7 +1,10 @@
 //! Cross-program invocation helpers.
 
+#[cfg(feature = "slice-cpi")]
 extern crate alloc;
 
+#[cfg(feature = "slice-cpi")]
+use alloc::boxed::Box;
 #[cfg(any(target_os = "solana", target_arch = "bpf"))]
 pub use solana_define_syscall::{
     define_syscall,
@@ -9,7 +12,6 @@ pub use solana_define_syscall::{
 };
 use {
     crate::InstructionView,
-    alloc::boxed::Box,
     core::{marker::PhantomData, mem::MaybeUninit, ops::Deref, slice::from_raw_parts},
     solana_account_view::AccountView,
     solana_address::Address,
@@ -230,7 +232,7 @@ pub fn invoke<const ACCOUNTS: usize>(
 
 /// Invoke a cross-program instruction from a slice of `AccountView`s.
 ///
-/// This function is a convenience wrapper around the [`invoke_with_bounds_signed`]
+/// This function is a convenience wrapper around the [`invoke_signed_with_bounds`]
 /// function with the signers' seeds set to an empty slice.
 ///
 /// The `MAX_ACCOUNTS` constant defines the maximum number of accounts expected
@@ -258,12 +260,13 @@ pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize>(
     instruction: &InstructionView,
     account_views: &[&AccountView],
 ) -> ProgramResult {
-    invoke_with_bounds_signed::<MAX_ACCOUNTS>(instruction, account_views, &[])
+    invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_views, &[])
 }
 
+#[cfg(feature = "slice-cpi")]
 /// Invoke a cross-program instruction from a slice of `AccountView`s.
 ///
-/// This function is a convenience wrapper around the [`invoke_with_slice_signed`]
+/// This function is a convenience wrapper around the [`invoke_signed_with_slice`]
 /// function with the signers' seeds set to an empty slice.
 ///
 /// Note that this function will allocate heap memory to store up to
@@ -280,7 +283,7 @@ pub fn invoke_with_slice(
     instruction: &InstructionView,
     account_views: &[&AccountView],
 ) -> ProgramResult {
-    invoke_with_slice_signed(instruction, account_views, &[])
+    invoke_signed_with_slice(instruction, account_views, &[])
 }
 
 /// Invoke a cross-program instruction with signatures from an array of
@@ -333,7 +336,9 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     // the same number of accounts as the instruction – this indirectly validates
     // that the stack allocated account storage `ACCOUNTS` is sufficient for the
     // number of accounts expected by the instruction.
-    unsafe { _invoke_with_slice_signed(instruction, account_views, &mut accounts, signers_seeds) }
+    unsafe {
+        inner_invoke_signed_with_slice(instruction, account_views, &mut accounts, signers_seeds)
+    }
 }
 
 /// Invoke a cross-program instruction with signatures from a slice of
@@ -374,7 +379,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_with_bounds_signed<const MAX_ACCOUNTS: usize>(
+pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     instruction: &InstructionView,
     account_views: &[&AccountView],
     signers_seeds: &[Signer],
@@ -399,9 +404,12 @@ pub fn invoke_with_bounds_signed<const MAX_ACCOUNTS: usize>(
 
     // SAFETY: The stack allocated account storage `MAX_ACCOUNTS` was validated
     // to be sufficient for the number of accounts expected by the instruction.
-    unsafe { _invoke_with_slice_signed(instruction, account_views, &mut accounts, signers_seeds) }
+    unsafe {
+        inner_invoke_signed_with_slice(instruction, account_views, &mut accounts, signers_seeds)
+    }
 }
 
+#[cfg(feature = "slice-cpi")]
 /// Invoke a cross-program instruction with signatures from a slice of
 /// `AccountView`s.
 ///
@@ -429,7 +437,7 @@ pub fn invoke_with_bounds_signed<const MAX_ACCOUNTS: usize>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_with_slice_signed(
+pub fn invoke_signed_with_slice(
     instruction: &InstructionView,
     account_views: &[&AccountView],
     signers_seeds: &[Signer],
@@ -444,7 +452,9 @@ pub fn invoke_with_slice_signed(
 
     // SAFETY: The allocated `accounts` slice has the same size as the expected number
     // of instruction accounts.
-    unsafe { _invoke_with_slice_signed(instruction, account_views, &mut accounts, signers_seeds) }
+    unsafe {
+        inner_invoke_signed_with_slice(instruction, account_views, &mut accounts, signers_seeds)
+    }
 }
 
 /// Internal function to invoke a cross-program instruction with signatures
@@ -465,7 +475,7 @@ pub fn invoke_with_slice_signed(
 /// shorter than the number of accounts expected by the instruction will result in
 /// undefined behavior.
 #[inline(always)]
-unsafe fn _invoke_with_slice_signed<'account, 'cpi>(
+unsafe fn inner_invoke_signed_with_slice<'account, 'cpi>(
     instruction: &InstructionView,
     account_views: &[&'account AccountView],
     accounts: &mut [MaybeUninit<CpiAccount<'cpi>>],

@@ -41,7 +41,7 @@ no_std_crates=(
 target="bpfel-unknown-none"
 
 # These features require alloc
-exclude_features_no_alloc="alloc,borsh,curve25519,serde"
+exclude_features_no_alloc="alloc,borsh,curve25519,serde,slice-cpi"
 # These features never work on upstream BPF
 exclude_features="atomic,bincode,default,dev-context-only-utils,frozen-abi,rand,std,verify"
 

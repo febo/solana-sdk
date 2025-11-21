@@ -17,6 +17,7 @@ rustdoc-args = ["--cfg=docsrs"]
 
 [features]
 cpi = ["dep:solana-define-syscall", "dep:solana-program-error"]
+slice-cpi = ["cpi"]
 
 [dependencies]
 solana-account-view = { workspace = true }
