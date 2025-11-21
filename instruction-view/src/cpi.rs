@@ -305,7 +305,7 @@ pub fn invoke_with_slice(
 ///
 /// Note that this function is inlined to avoid the overhead of a function call,
 /// but uses stack memory allocation. When a large number of accounts is needed,
-/// it is recommended to use the [`invoke_with_slice_signed`] function instead
+/// it is recommended to use the [`invoke_signed_with_slice`] function instead
 /// to reduce stack memory utilization.
 ///
 /// # Important
@@ -369,7 +369,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 ///
 /// Note that this function is inlined to avoid the overhead of a function call,
 /// but uses stack memory allocation. When a large number of accounts is needed,
-/// it is recommended to use the [`invoke_with_slice_signed`] function instead to reduce
+/// it is recommended to use the [`invoke_signed_with_slice`] function instead to reduce
 /// stack memory utilization.
 ///
 /// # Important
