@@ -16,5 +16,5 @@ for cargo_toml in $(git ls-files -- '**/Cargo.toml'); do
     minimum_version=$(readCargoVariable rust-version "program/Cargo.toml")
   fi
 
-  cargo +$minimum_version check --manifest-path $cargo_toml
+  cargo +"$minimum_version" check --manifest-path "$cargo_toml"
 done
