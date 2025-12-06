@@ -57,7 +57,7 @@ mod wrapper;
 #[cfg(feature = "macro")]
 pub use solana_program_log_macro::*;
 pub use {
-    logger::{log_message as log, Argument, Logger},
+    logger::{Argument, Logger},
     wrapper::*,
 };
 
