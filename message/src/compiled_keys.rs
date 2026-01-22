@@ -1,8 +1,5 @@
 #[cfg(not(target_os = "solana"))]
-use crate::{
-    v0::{LoadedAddresses, MessageAddressTableLookup},
-    AddressLookupTableAccount,
-};
+use crate::{v0::MessageAddressTableLookup, AddressLookupTableAccount, LoadedAddresses};
 use {
     crate::{inline_nonce::is_advance_nonce_instruction_data, MessageHeader},
     core::fmt,
