@@ -9,7 +9,6 @@
 //! [`v0`]: crate::v0
 //! [future message format]: https://docs.solanalabs.com/proposals/versioned-transactions
 
-pub use loaded::*;
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "frozen-abi")]
@@ -29,8 +28,6 @@ use {
     solana_sdk_ids::bpf_loader_upgradeable,
     std::collections::HashSet,
 };
-
-mod loaded;
 
 /// Address table lookups describe an on-chain address lookup table to use
 /// for loading more readonly and writable accounts in a single tx.
