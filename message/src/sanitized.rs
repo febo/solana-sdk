@@ -80,6 +80,8 @@ pub enum SanitizedMessage {
     Legacy(LegacyMessage<'static>),
     /// Sanitized version #0 message with dynamically loaded addresses
     V0(LoadedMessage<'static>),
+    /// Sanitized version #1 message (4KB transactions, no address lookup tables)
+    V1(LoadedMessage<'static>),
 }
 
 impl SanitizedMessage {
@@ -104,6 +106,11 @@ impl SanitizedMessage {
                     reserved_account_keys,
                 ))
             }
+            VersionedMessage::V1(_) => SanitizedMessage::V1(LoadedMessage::new(
+                sanitized_msg.message,
+                LoadedAddresses::default(),
+                reserved_account_keys,
+            )),
         })
     }
 
@@ -123,7 +130,9 @@ impl SanitizedMessage {
     pub fn has_duplicates(&self) -> bool {
         match self {
             SanitizedMessage::Legacy(message) => message.has_duplicates(),
-            SanitizedMessage::V0(message) => message.has_duplicates(),
+            SanitizedMessage::V0(message) | SanitizedMessage::V1(message) => {
+                message.has_duplicates()
+            }
         }
     }
 
@@ -132,7 +141,7 @@ impl SanitizedMessage {
     pub fn header(&self) -> &MessageHeader {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.header,
-            Self::V0(loaded_msg) => loaded_msg.message.header(),
+            Self::V0(loaded_msg) | Self::V1(loaded_msg) => loaded_msg.message.header(),
         }
     }
 
@@ -156,7 +165,7 @@ impl SanitizedMessage {
     pub fn recent_blockhash(&self) -> &Hash {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.recent_blockhash,
-            Self::V0(loaded_msg) => loaded_msg.message.recent_blockhash(),
+            Self::V0(loaded_msg) | Self::V1(loaded_msg) => loaded_msg.message.recent_blockhash(),
         }
     }
 
@@ -165,7 +174,7 @@ impl SanitizedMessage {
     pub fn instructions(&self) -> &[CompiledInstruction] {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.instructions,
-            Self::V0(loaded_msg) => loaded_msg.message.instructions(),
+            Self::V0(loaded_msg) | Self::V1(loaded_msg) => loaded_msg.message.instructions(),
         }
     }
 
@@ -188,7 +197,7 @@ impl SanitizedMessage {
     pub fn static_account_keys(&self) -> &[Address] {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.account_keys,
-            Self::V0(loaded_msg) => loaded_msg.message.static_account_keys(),
+            Self::V0(loaded_msg) | Self::V1(loaded_msg) => loaded_msg.message.static_account_keys(),
         }
     }
 
@@ -196,7 +205,7 @@ impl SanitizedMessage {
     pub fn account_keys(&self) -> AccountKeys<'_> {
         match self {
             Self::Legacy(message) => message.account_keys(),
-            Self::V0(message) => message.account_keys(),
+            Self::V0(message) | Self::V1(message) => message.account_keys(),
         }
     }
 
@@ -229,7 +238,7 @@ impl SanitizedMessage {
     pub fn is_invoked(&self, key_index: usize) -> bool {
         match self {
             Self::Legacy(message) => message.is_key_called_as_program(key_index),
-            Self::V0(message) => message.is_key_called_as_program(key_index),
+            Self::V0(message) | Self::V1(message) => message.is_key_called_as_program(key_index),
         }
     }
 
@@ -238,7 +247,7 @@ impl SanitizedMessage {
     pub fn is_writable(&self, index: usize) -> bool {
         match self {
             Self::Legacy(message) => message.is_writable(index),
-            Self::V0(message) => message.is_writable(index),
+            Self::V0(message) | Self::V1(message) => message.is_writable(index),
         }
     }
 
@@ -251,7 +260,9 @@ impl SanitizedMessage {
     /// Return the resolved addresses for this message if it has any.
     fn loaded_lookup_table_addresses(&self) -> Option<&LoadedAddresses> {
         match &self {
-            SanitizedMessage::V0(message) => Some(&message.loaded_addresses),
+            SanitizedMessage::V0(message) | SanitizedMessage::V1(message) => {
+                Some(&message.loaded_addresses)
+            }
             _ => None,
         }
     }
@@ -298,7 +309,7 @@ impl SanitizedMessage {
     pub fn is_upgradeable_loader_present(&self) -> bool {
         match self {
             Self::Legacy(message) => message.is_upgradeable_loader_present(),
-            Self::V0(message) => message.is_upgradeable_loader_present(),
+            Self::V0(message) | Self::V1(message) => message.is_upgradeable_loader_present(),
         }
     }
 
