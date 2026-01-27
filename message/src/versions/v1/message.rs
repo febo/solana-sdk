@@ -36,6 +36,8 @@
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "frozen-abi")]
 use solana_frozen_abi_macro::AbiExample;
+#[cfg(feature = "wincode")]
+use wincode::{containers, len::ShortU16Len, SchemaRead, SchemaWrite};
 use {
     crate::{
         compiled_instruction::CompiledInstruction,
@@ -65,6 +67,7 @@ use {
     derive(Serialize, Deserialize),
     serde(rename_all = "camelCase")
 )]
+#[cfg_attr(feature = "wincode", derive(SchemaWrite, SchemaRead))]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Message {
     /// The message header describing signer/readonly account counts.
@@ -94,9 +97,13 @@ pub struct Message {
     ///
     ///   - `num_readonly_unsigned_accounts` addresses for which the transaction does not
     ///     contain signatures and are loaded as readonly.
+    #[cfg_attr(feature = "serde", serde(with = "solana_short_vec"))]
+    #[cfg_attr(feature = "wincode", wincode(with = "containers::Vec<_, ShortU16Len>"))]
     pub account_keys: Vec<Address>,
 
     /// Program instructions to execute.
+    #[cfg_attr(feature = "serde", serde(with = "solana_short_vec"))]
+    #[cfg_attr(feature = "wincode", wincode(with = "containers::Vec<_, ShortU16Len>"))]
     pub instructions: Vec<CompiledInstruction>,
 }
 

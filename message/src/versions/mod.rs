@@ -53,7 +53,7 @@ pub const MESSAGE_VERSION_PREFIX: u8 = 0x80;
 /// format.
 #[cfg_attr(
     feature = "frozen-abi",
-    frozen_abi(digest = "Hndd1SDxQ5qNZvzHo77dpW6uD5c1DJNVjtg8tE6hc432"),
+    frozen_abi(digest = "3FVVnsLRS9Ue7MwhQPLxod48B1HxvDuX4nt4UhKV4jcs"),
     derive(AbiEnumVisitor, AbiExample)
 )]
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -479,10 +479,8 @@ impl<'de> SchemaRead<'de> for VersionedMessage {
                 1 => {
                     // -1 for already-read variant byte
                     let bytes = reader.fill_buf(v1::MAX_TRANSACTION_SIZE - 1)?;
-                    let (message, consumed) = deserialize(bytes).map_err(|error| {
-                        println!("{error:?}");
-                        invalid_tag_encoding(1)
-                    })?;
+                    let (message, consumed) =
+                        deserialize(bytes).map_err(|_| invalid_tag_encoding(1))?;
 
                     reader.consume(consumed)?;
                     dst.write(VersionedMessage::V1(message));
