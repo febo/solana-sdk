@@ -207,12 +207,15 @@ impl SanitizedTransaction {
         let signatures = self.signatures.clone();
         match &self.message {
             SanitizedMessage::V0(sanitized_msg) | SanitizedMessage::V1(sanitized_msg) => {
-                VersionedTransaction::new(sanitized_msg.message.clone().into_owned(), signatures)
+                VersionedTransaction {
+                    message: sanitized_msg.message.clone().into_owned(),
+                    signatures,
+                }
             }
-            SanitizedMessage::Legacy(legacy_message) => VersionedTransaction::new(
-                VersionedMessage::Legacy(legacy::Message::clone(&legacy_message.message)),
+            SanitizedMessage::Legacy(legacy_message) => VersionedTransaction {
+                message: VersionedMessage::Legacy(legacy::Message::clone(&legacy_message.message)),
                 signatures,
-            ),
+            },
         }
     }
 

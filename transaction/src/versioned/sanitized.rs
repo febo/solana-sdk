@@ -1,8 +1,6 @@
 use {
-    crate::versioned::{v0, v1, TransactionPayload, VersionedTransaction},
-    solana_message::SanitizedVersionedMessage,
-    solana_sanitize::SanitizeError,
-    solana_signature::Signature,
+    crate::versioned::VersionedTransaction, solana_message::SanitizedVersionedMessage,
+    solana_sanitize::SanitizeError, solana_signature::Signature,
 };
 
 /// Wraps a sanitized `VersionedTransaction` to provide a safe API
@@ -25,28 +23,9 @@ impl SanitizedVersionedTransaction {
     pub fn try_new(tx: VersionedTransaction) -> Result<Self, SanitizeError> {
         tx.sanitize_signatures()?;
 
-        Ok(match tx.payload {
-            TransactionPayload::Legacy(v0::Payload {
-                signatures,
-                message,
-            }) => Self {
-                signatures,
-                message: SanitizedVersionedMessage::try_from(message)?,
-            },
-            TransactionPayload::V0(v0::Payload {
-                signatures,
-                message,
-            }) => Self {
-                signatures,
-                message: SanitizedVersionedMessage::try_from(message)?,
-            },
-            TransactionPayload::V1(v1::Payload {
-                message,
-                signatures,
-            }) => Self {
-                signatures,
-                message: SanitizedVersionedMessage::try_from(message)?,
-            },
+        Ok(Self {
+            signatures: tx.signatures,
+            message: SanitizedVersionedMessage::try_from(tx.message)?,
         })
     }
 
@@ -71,12 +50,12 @@ mod tests {
 
     #[test]
     fn test_try_new_with_invalid_signatures() {
-        let tx = VersionedTransaction::new(
-            VersionedMessage::V0(
+        let tx = VersionedTransaction {
+            message: VersionedMessage::V0(
                 v0::Message::try_compile(&Pubkey::new_unique(), &[], &[], Hash::default()).unwrap(),
             ),
-            vec![],
-        );
+            signatures: vec![],
+        };
 
         assert_eq!(
             SanitizedVersionedTransaction::try_new(tx),
@@ -90,8 +69,10 @@ mod tests {
             v0::Message::try_compile(&Pubkey::new_unique(), &[], &[], Hash::default()).unwrap();
         message.header.num_readonly_signed_accounts += 1;
 
-        let tx =
-            VersionedTransaction::new(VersionedMessage::V0(message), vec![Signature::default()]);
+        let tx = VersionedTransaction {
+            message: VersionedMessage::V0(message),
+            signatures: vec![Signature::default()],
+        };
 
         assert_eq!(
             SanitizedVersionedTransaction::try_new(tx),
