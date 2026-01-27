@@ -2,7 +2,10 @@
 
 use {
     crate::Transaction,
-    solana_message::{inline_nonce::is_advance_nonce_instruction_data, VersionedMessage},
+    solana_message::{
+        inline_nonce::is_advance_nonce_instruction_data, v1::SIGNATURE_SIZE, VersionedMessage,
+        MESSAGE_VERSION_PREFIX,
+    },
     solana_sanitize::SanitizeError,
     solana_sdk_ids::system_program,
     solana_signature::Signature,
@@ -20,8 +23,6 @@ use {
 };
 
 pub mod sanitized;
-mod v0;
-mod v1;
 
 /// Type that serializes to the string "legacy"
 #[cfg_attr(
@@ -49,80 +50,27 @@ impl TransactionVersion {
     pub const LEGACY: Self = Self::Legacy(Legacy::Legacy);
 }
 
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "wincode", derive(SchemaWrite, SchemaRead))]
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum TransactionPayload {
-    Legacy(v0::Payload),
-    V0(v0::Payload),
-    V1(v1::Payload),
-}
-
-impl TransactionPayload {
-    #[inline(always)]
-    pub const fn signatures(&self) -> &Vec<Signature> {
-        match self {
-            TransactionPayload::Legacy(data) => &data.signatures,
-            TransactionPayload::V0(data) => &data.signatures,
-            TransactionPayload::V1(data) => &data.signatures,
-        }
-    }
-
-    #[inline(always)]
-    pub const fn message(&self) -> &VersionedMessage {
-        match self {
-            TransactionPayload::Legacy(data) => &data.message,
-            TransactionPayload::V0(data) => &data.message,
-            TransactionPayload::V1(data) => &data.message,
-        }
-    }
-}
-
 // NOTE: Serialization-related changes must be paired with the direct read at sigverify.
 /// An atomic transaction
 #[cfg_attr(feature = "frozen-abi", derive(solana_frozen_abi_macro::AbiExample))]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "wincode", derive(SchemaWrite, SchemaRead))]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Default, Eq, Clone)]
 pub struct VersionedTransaction {
-    pub payload: TransactionPayload,
+    /// List of signatures
+    pub signatures: Vec<Signature>,
+    /// Message to sign.
+    pub message: VersionedMessage,
 }
 
 impl From<Transaction> for VersionedTransaction {
     fn from(transaction: Transaction) -> Self {
         Self {
-            payload: TransactionPayload::Legacy(v0::Payload {
-                signatures: transaction.signatures,
-                message: VersionedMessage::Legacy(transaction.message),
-            }),
+            signatures: transaction.signatures,
+            message: VersionedMessage::Legacy(transaction.message),
         }
     }
 }
 
 impl VersionedTransaction {
-    pub(crate) fn new(message: VersionedMessage, signatures: Vec<Signature>) -> Self {
-        match message {
-            VersionedMessage::Legacy(_) => Self {
-                payload: TransactionPayload::Legacy(v0::Payload {
-                    signatures,
-                    message,
-                }),
-            },
-            VersionedMessage::V0(_) => Self {
-                payload: TransactionPayload::V0(v0::Payload {
-                    signatures,
-                    message,
-                }),
-            },
-            VersionedMessage::V1(_) => Self {
-                payload: TransactionPayload::V1(v1::Payload {
-                    message,
-                    signatures,
-                }),
-            },
-        }
-    }
-
     /// Signs a versioned message and if successful, returns a signed
     /// transaction.
     #[cfg(feature = "wincode")]
@@ -167,39 +115,23 @@ impl VersionedTransaction {
             })
             .collect::<std::result::Result<_, SignerError>>()?;
 
-        Ok(match message {
-            VersionedMessage::Legacy(_) => Self {
-                payload: TransactionPayload::Legacy(v0::Payload {
-                    signatures,
-                    message,
-                }),
-            },
-            VersionedMessage::V0(_) => Self {
-                payload: TransactionPayload::V0(v0::Payload {
-                    signatures,
-                    message,
-                }),
-            },
-            VersionedMessage::V1(_) => Self {
-                payload: TransactionPayload::V1(v1::Payload {
-                    message,
-                    signatures,
-                }),
-            },
+        Ok(Self {
+            signatures,
+            message,
         })
     }
 
     pub fn sanitize(&self) -> std::result::Result<(), SanitizeError> {
-        self.payload.message().sanitize()?;
+        self.message.sanitize()?;
         self.sanitize_signatures()?;
         Ok(())
     }
 
     pub(crate) fn sanitize_signatures(&self) -> std::result::Result<(), SanitizeError> {
         Self::sanitize_signatures_inner(
-            usize::from(self.payload.message().header().num_required_signatures),
-            self.payload.message().static_account_keys().len(),
-            self.payload.signatures().len(),
+            usize::from(self.message.header().num_required_signatures),
+            self.message.static_account_keys().len(),
+            self.signatures.len(),
         )
     }
 
@@ -225,7 +157,7 @@ impl VersionedTransaction {
 
     /// Returns the version of the transaction
     pub fn version(&self) -> TransactionVersion {
-        match self.payload.message() {
+        match self.message {
             VersionedMessage::Legacy(_) => TransactionVersion::LEGACY,
             VersionedMessage::V0(_) => TransactionVersion::Number(0),
             VersionedMessage::V1(_) => TransactionVersion::Number(1),
@@ -234,9 +166,9 @@ impl VersionedTransaction {
 
     /// Returns a legacy transaction if the transaction message is legacy.
     pub fn into_legacy_transaction(self) -> Option<Transaction> {
-        match self.payload.message() {
+        match self.message {
             VersionedMessage::Legacy(message) => Some(Transaction {
-                signatures: self.payload.signatures().clone(),
+                signatures: self.signatures.clone(),
                 message: message.clone(),
             }),
             _ => None,
@@ -248,7 +180,7 @@ impl VersionedTransaction {
     pub fn verify_and_hash_message(
         &self,
     ) -> solana_transaction_error::TransactionResult<solana_hash::Hash> {
-        let message_bytes = self.payload.message().serialize();
+        let message_bytes = self.message.serialize();
         if !self
             ._verify_with_results(&message_bytes)
             .iter()
@@ -263,23 +195,22 @@ impl VersionedTransaction {
     #[cfg(feature = "verify")]
     /// Verify the transaction and return a list of verification results
     pub fn verify_with_results(&self) -> Vec<bool> {
-        let message_bytes = self.payload.message().serialize();
+        let message_bytes = self.message.serialize();
         self._verify_with_results(&message_bytes)
     }
 
     #[cfg(feature = "verify")]
     fn _verify_with_results(&self, message_bytes: &[u8]) -> Vec<bool> {
-        self.payload
-            .signatures()
+        self.signatures
             .iter()
-            .zip(self.payload.message().static_account_keys().iter())
+            .zip(self.message.static_account_keys().iter())
             .map(|(signature, pubkey)| signature.verify(pubkey.as_ref(), message_bytes))
             .collect()
     }
 
     /// Returns true if transaction begins with an advance nonce instruction.
     pub fn uses_durable_nonce(&self) -> bool {
-        let message = self.payload.message();
+        let message = &self.message;
         message
             .instructions()
             .get(crate::NONCED_TX_MARKER_IX_INDEX as usize)
@@ -294,15 +225,122 @@ impl VersionedTransaction {
     }
 }
 
+#[cfg(feature = "wincode")]
+impl SchemaWrite for VersionedTransaction {
+    type Src = Self;
+
+    #[allow(clippy::arithmetic_side_effects)]
+    #[inline]
+    fn size_of(src: &Self::Src) -> WriteResult<usize> {
+        Ok(
+            <containers::Vec<Signature, ShortU16Len> as SchemaWrite>::size_of(&src.signatures)?
+                + <VersionedMessage as SchemaWrite>::size_of(&src.message)?,
+        )
+    }
+
+    #[inline]
+    fn write(writer: &mut impl Writer, src: &Self::Src) -> WriteResult<()> {
+        match src.message {
+            VersionedMessage::Legacy(_) | VersionedMessage::V0(_) => {
+                // `signatures` are written with `ShortU16Len` length prefix.
+                <containers::Vec<Signature, ShortU16Len> as SchemaWrite>::write(
+                    writer,
+                    &src.signatures,
+                )?;
+                <VersionedMessage as SchemaWrite>::write(writer, &src.message)
+            }
+            VersionedMessage::V1(_) => {
+                VersionedMessage::write(writer, &src.message)?;
+                unsafe {
+                    writer
+                        .write_slice_t(&src.signatures)
+                        .map_err(wincode::WriteError::Io)
+                }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "wincode")]
+impl<'de> SchemaRead<'de> for VersionedTransaction {
+    type Dst = Self;
+
+    #[inline]
+    fn read(reader: &mut impl Reader<'de>, dst: &mut MaybeUninit<Self::Dst>) -> ReadResult<()> {
+        // Peek the discriminator to decide how to read the transaction data.
+        //
+        // - For `Legacy` and `V0` messages, the first byte is part of the `short_vec` length
+        //   prefix for the `signatures` field. Since `signatures < 128` is always true, if
+        //   the top bit is `0`, we expect the message to be either `Legacy` or `V0`.
+        //
+        // - For `V1` messages, the first byte is the message version byte, which is always
+        //   `> 128` and the top bit is always `1`.
+        let discriminator = reader.peek()?;
+
+        if discriminator & MESSAGE_VERSION_PREFIX == 0 {
+            // Legacy or V0 transaction
+
+            let dst_ptr = dst.as_mut_ptr();
+
+            <containers::Vec<Signature, ShortU16Len> as SchemaRead<'de>>::read(reader, unsafe {
+                &mut *(&raw mut (*dst_ptr).signatures).cast::<MaybeUninit<Vec<Signature>>>()
+            })?;
+
+            <VersionedMessage as SchemaRead<'de>>::read(reader, unsafe {
+                &mut *(&raw mut (*dst_ptr).message).cast::<MaybeUninit<_>>()
+            })?;
+        } else {
+            // V1 transaction
+
+            let message = VersionedMessage::get(reader)?;
+
+            let expected_signatures_len = message.header().num_required_signatures as usize;
+
+            let bytes =
+                reader.fill_exact(expected_signatures_len.saturating_mul(SIGNATURE_SIZE))?;
+            let mut signatures = Vec::with_capacity(expected_signatures_len);
+
+            // SAFETY: signatures vector is allocated with enough capacity to hold
+            // `expected_signatures_len` signatures and `bytes` contains exactly that
+            // many signatures read from the reader.
+            unsafe {
+                let signatures_ptr = signatures.as_mut_ptr();
+                copy_nonoverlapping(
+                    bytes.as_ptr() as *const Signature,
+                    signatures_ptr,
+                    expected_signatures_len,
+                );
+                signatures.set_len(expected_signatures_len);
+            }
+
+            dst.write(Self {
+                message,
+                signatures,
+            });
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use {
         super::*,
+        solana_address::{Address, ADDRESS_BYTES},
         solana_hash::Hash,
         solana_instruction::{AccountMeta, Instruction},
         solana_keypair::Keypair,
-        solana_message::{v0::Message as MessageV0, Message as LegacyMessage},
+        solana_message::{
+            compiled_instruction::CompiledInstruction,
+            v0::Message as MessageV0,
+            v1::{
+                MessageBuilder, FIXED_HEADER_SIZE, INSTRUCTION_HEADER_SIZE, MAX_TRANSACTION_SIZE,
+            },
+            Message as LegacyMessage,
+        },
         solana_pubkey::Pubkey,
+        solana_short_vec as short_vec,
         solana_signer::Signer,
         solana_system_interface::instruction as system_instruction,
     };
@@ -373,18 +411,21 @@ mod tests {
 
     #[test]
     fn tx_uses_nonce_empty_ix_fail() {
-        let tx = VersionedTransaction::new(VersionedMessage::V0(MessageV0::default()), vec![]);
+        let tx = VersionedTransaction {
+            message: VersionedMessage::V0(MessageV0::default()),
+            signatures: vec![],
+        };
         assert!(!tx.uses_durable_nonce());
     }
 
     #[test]
     fn tx_uses_nonce_bad_prog_id_idx_fail() {
         let (_, _, mut tx) = nonced_transfer_tx();
-        match &mut tx.payload {
-            TransactionPayload::Legacy(v0::Payload {
+        match &mut tx {
+            VersionedTransaction {
                 message: VersionedMessage::Legacy(message),
                 ..
-            }) => {
+            } => {
                 message.instructions.get_mut(0).unwrap().program_id_index = 255u8;
             }
             _ => unreachable!(),
@@ -449,7 +490,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "wincode")]
     #[test]
     fn versioned_transaction_wincode_bincode_roundtrip() {
         use {
@@ -464,6 +504,18 @@ mod tests {
             },
             solana_signature::SIGNATURE_BYTES,
         };
+
+        // Bincode version of VersionedTransaction for cross-checking serialization
+        // with wincode.
+        #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+        #[derive(Debug, PartialEq, Default, Eq, Clone)]
+        struct BincodeVersionedTransaction {
+            /// List of signatures
+            #[cfg_attr(feature = "serde", serde(with = "short_vec"))]
+            pub signatures: Vec<Signature>,
+            /// Message to sign.
+            pub message: VersionedMessage,
+        }
 
         fn strat_byte_vec(max_len: usize) -> impl Strategy<Value = Vec<u8>> {
             proptest::collection::vec(any::<u8>(), 0..=max_len)
@@ -558,23 +610,96 @@ mod tests {
             ]
         }
 
-        fn strat_versioned_transaction() -> impl Strategy<Value = VersionedTransaction> {
+        fn strat_versioned_transaction(
+        ) -> impl Strategy<Value = (VersionedTransaction, BincodeVersionedTransaction)> {
             (
                 proptest::collection::vec(strat_signature(), 0..=8),
                 strat_versioned_message(),
             )
-                .prop_map(|(signatures, message)| VersionedTransaction::new(message, signatures))
+                .prop_map(|(signatures, message)| {
+                    (
+                        VersionedTransaction {
+                            message: message.clone(),
+                            signatures: signatures.clone(),
+                        },
+                        BincodeVersionedTransaction {
+                            message: message.clone(),
+                            signatures: signatures.clone(),
+                        },
+                    )
+                })
         }
 
         proptest!(|(tx in strat_versioned_transaction())| {
-            let bincode_serialized = bincode::serialize(&tx).unwrap();
-            let wincode_serialized = wincode::serialize(&tx).unwrap();
+            let wincode_serialized = wincode::serialize(&tx.0).unwrap();
+            let bincode_serialized = bincode::serialize(&tx.1).unwrap();
+
             assert_eq!(bincode_serialized, wincode_serialized);
 
-            let bincode_deserialized: VersionedTransaction = bincode::deserialize(&bincode_serialized).unwrap();
-            let wincode_deserialized = wincode::deserialize(&wincode_serialized).unwrap();
-            assert_eq!(&bincode_deserialized, &wincode_deserialized);
-            assert_eq!(wincode_deserialized, tx);
+            let bincode_deserialized: BincodeVersionedTransaction = bincode::deserialize(&bincode_serialized).unwrap();
+            let wincode_deserialized: VersionedTransaction = wincode::deserialize(&wincode_serialized).unwrap();
+
+            assert_eq!(&bincode_deserialized.message, &wincode_deserialized.message);
+            assert_eq!(&bincode_deserialized.signatures, &wincode_deserialized.signatures);
+
+            assert_eq!(wincode_deserialized, tx.0);
         });
+    }
+
+    #[test]
+    fn v1_transaction_at_max_size() {
+        // Calculate exact max data size for a transaction at the limit:
+        // - 1 signature
+        // - Fixed header (version + MessageHeader + config mask + lifetime + num_ix + num_addr)
+        // - 2 addresses
+        // - No config values (mask = 0)
+        // - 1 instruction header
+        // - 1 account index in instruction
+        const NUM_SIGNATURES: usize = 1;
+        const NUM_ADDRESSES: usize = 2;
+        const NUM_INSTRUCTION_ACCOUNTS: usize = 1;
+
+        let overhead = 1 // version byte
+            + (NUM_SIGNATURES * SIGNATURE_SIZE)
+            + FIXED_HEADER_SIZE
+            + (NUM_ADDRESSES * ADDRESS_BYTES)
+            + INSTRUCTION_HEADER_SIZE
+            + NUM_INSTRUCTION_ACCOUNTS;
+
+        // minus 1 for version byte
+        let max_data_size = MAX_TRANSACTION_SIZE - overhead;
+        let data = vec![0u8; max_data_size];
+
+        let message = MessageBuilder::new()
+            .required_signatures(NUM_SIGNATURES as u8)
+            .lifetime_specifier(Hash::new_unique())
+            .accounts(vec![Address::new_unique(), Address::new_unique()])
+            .instruction(CompiledInstruction {
+                program_id_index: 1,
+                accounts: vec![0],
+                data,
+            })
+            .build()
+            .unwrap();
+
+        let v1_tx = VersionedTransaction {
+            message: VersionedMessage::V1(message),
+            signatures: vec![Signature::default()],
+        };
+
+        let serialized = wincode::serialize(&v1_tx).unwrap();
+
+        assert_eq!(
+            serialized.len(),
+            MAX_TRANSACTION_SIZE,
+            "Transaction should be exactly at max size"
+        );
+
+        let deserialized = wincode::deserialize(&serialized).unwrap();
+
+        assert_eq!(
+            v1_tx, deserialized,
+            "Deserialized payload should match original"
+        );
     }
 }
