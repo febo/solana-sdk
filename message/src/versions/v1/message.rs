@@ -223,6 +223,7 @@ impl Message {
         true
     }
 
+    #[allow(clippy::arithmetic_side_effects)]
     #[inline(always)]
     pub fn size(&self) -> usize {
         size_of::<MessageHeader>()                           // legacy header
@@ -445,6 +446,7 @@ pub(crate) unsafe fn serialize_into(message: &Message, mut dst: *mut u8) {
 
 /// Deserialize the message from the provided input buffer, returning the message and
 /// the number of bytes read.
+#[allow(clippy::arithmetic_side_effects)]
 pub fn deserialize(input: &[u8]) -> Result<(Message, usize), MessageError> {
     if input.len() < FIXED_HEADER_SIZE {
         return Err(MessageError::BufferTooSmall);
