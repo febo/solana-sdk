@@ -41,15 +41,17 @@ use wincode::{containers, len::ShortU16Len, SchemaRead, SchemaWrite};
 use {
     crate::{
         compiled_instruction::CompiledInstruction,
+        compiled_keys::CompiledKeys,
         v1::{
             MessageError, TransactionConfig, TransactionConfigMask, FIXED_HEADER_SIZE,
             MAX_ADDRESSES, MAX_INSTRUCTIONS, MAX_SIGNATURES,
         },
-        MessageHeader,
+        AccountKeys, CompileError, MessageHeader,
     },
     core::{mem::size_of, ptr::copy_nonoverlapping},
     solana_address::Address,
     solana_hash::Hash,
+    solana_instruction::Instruction,
     solana_sanitize::{Sanitize, SanitizeError},
     solana_sdk_ids::bpf_loader_upgradeable,
     std::{collections::HashSet, mem::MaybeUninit},
@@ -123,6 +125,153 @@ impl Message {
             account_keys,
             instructions,
         }
+    }
+
+    /// Create a signable transaction message from a `payer` public key,
+    /// `recent_blockhash`, list of `instructions` and a transaction `config`.
+    ///
+    /// # Examples
+    ///
+    /// This example uses the [`solana_rpc_client`], [`solana_account`], and [`anyhow`] crates.
+    ///
+    /// [`solana_rpc_client`]: https://docs.rs/solana-rpc-client
+    /// [`solana_account`]: https://docs.rs/solana-account
+    /// [`anyhow`]: https://docs.rs/anyhow
+    ///
+    /// ```
+    /// # use solana_example_mocks::{
+    /// #     solana_rpc_client,
+    /// #     solana_account,
+    /// #     solana_transaction,
+    /// #     solana_signer,
+    /// #     solana_keypair,
+    /// # };
+    /// # use std::borrow::Cow;
+    /// # use solana_account::Account;
+    /// use anyhow::Result;
+    /// use solana_instruction::{AccountMeta, Instruction};
+    /// use solana_keypair::Keypair;
+    /// use solana_message::{VersionedMessage, v1};
+    /// use solana_address::Address;
+    /// use solana_rpc_client::rpc_client::RpcClient;
+    /// use solana_signer::Signer;
+    /// use solana_transaction::versioned::VersionedTransaction;
+    ///
+    /// fn create_v1_tx(
+    ///     client: &RpcClient,
+    ///     instruction: Instruction,
+    ///     address_lookup_table_key: Address,
+    ///     payer: &Keypair,
+    /// ) -> Result<VersionedTransaction> {
+    ///     let blockhash = client.get_latest_blockhash()?;
+    ///     let tx = VersionedTransaction::try_new(
+    ///         VersionedMessage::V1(v1::Message::try_compile(
+    ///             &payer.pubkey(),
+    ///             &[instruction],
+    ///             blockhash,
+    ///         )?),
+    ///         &[payer],
+    ///     )?;
+    ///
+    ///     Ok(tx)
+    /// }
+    /// #
+    /// # let client = RpcClient::new(String::new());
+    /// # let payer = Keypair::new();
+    /// # let instruction = Instruction::new_with_bincode(Address::new_unique(), &(), vec![
+    /// #   AccountMeta::new(Address::new_unique(), false),
+    /// # ]);
+    /// # Ok::<(), anyhow::Error>(())
+    /// ```
+    pub fn try_compile(
+        payer: &Address,
+        instructions: &[Instruction],
+        recent_blockhash: Hash,
+    ) -> Result<Self, CompileError> {
+        Self::try_compile_with_config(
+            payer,
+            instructions,
+            recent_blockhash,
+            &TransactionConfig::default(),
+        )
+    }
+
+    /// Create a signable transaction message from a `payer` public key,
+    /// `recent_blockhash`, list of `instructions` and a transaction `config`.
+    ///
+    /// # Examples
+    ///
+    /// This example uses the [`solana_rpc_client`], [`solana_account`], and [`anyhow`] crates.
+    ///
+    /// [`solana_rpc_client`]: https://docs.rs/solana-rpc-client
+    /// [`solana_account`]: https://docs.rs/solana-account
+    /// [`anyhow`]: https://docs.rs/anyhow
+    ///
+    /// ```
+    /// # use solana_example_mocks::{
+    /// #     solana_rpc_client,
+    /// #     solana_account,
+    /// #     solana_transaction,
+    /// #     solana_signer,
+    /// #     solana_keypair,
+    /// # };
+    /// # use std::borrow::Cow;
+    /// # use solana_account::Account;
+    /// use anyhow::Result;
+    /// use solana_instruction::{AccountMeta, Instruction};
+    /// use solana_keypair::Keypair;
+    /// use solana_message::{VersionedMessage, v1, v1::TransactionConfig};
+    /// use solana_address::Address;
+    /// use solana_rpc_client::rpc_client::RpcClient;
+    /// use solana_signer::Signer;
+    /// use solana_transaction::versioned::VersionedTransaction;
+    ///
+    /// fn create_v1_tx(
+    ///     client: &RpcClient,
+    ///     instruction: Instruction,
+    ///     address_lookup_table_key: Address,
+    ///     payer: &Keypair,
+    /// ) -> Result<VersionedTransaction> {
+    ///     let blockhash = client.get_latest_blockhash()?;
+    ///     let tx = VersionedTransaction::try_new(
+    ///         VersionedMessage::V1(v1::Message::try_compile_with_config(
+    ///             &payer.pubkey(),
+    ///             &[instruction],
+    ///             blockhash,
+    ///             &TransactionConfig::new().with_compute_unit_limit(100),
+    ///         )?),
+    ///         &[payer],
+    ///     )?;
+    ///
+    ///     Ok(tx)
+    /// }
+    /// #
+    /// # let client = RpcClient::new(String::new());
+    /// # let payer = Keypair::new();
+    /// # let instruction = Instruction::new_with_bincode(Address::new_unique(), &(), vec![
+    /// #   AccountMeta::new(Address::new_unique(), false),
+    /// # ]);
+    /// # Ok::<(), anyhow::Error>(())
+    /// ```
+    pub fn try_compile_with_config(
+        payer: &Address,
+        instructions: &[Instruction],
+        recent_blockhash: Hash,
+        config: &TransactionConfig,
+    ) -> Result<Self, CompileError> {
+        let compiled_keys = CompiledKeys::compile(instructions, Some(*payer));
+        let (header, static_keys) = compiled_keys.try_into_message_components()?;
+
+        let account_keys = AccountKeys::new(&static_keys, None);
+        let instructions = account_keys.try_compile_instructions(instructions)?;
+
+        Ok(Self {
+            header,
+            config: *config,
+            lifetime_specifier: recent_blockhash,
+            account_keys: static_keys,
+            instructions,
+        })
     }
 
     /// Returns the fee payer address (first account key).
