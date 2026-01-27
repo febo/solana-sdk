@@ -17,6 +17,7 @@ use {
 
 pub mod sanitized;
 mod v0;
+mod v1;
 
 /// Type that serializes to the string "legacy"
 #[cfg_attr(
@@ -50,6 +51,7 @@ impl TransactionVersion {
 pub enum TransactionPayload {
     Legacy(v0::Payload),
     V0(v0::Payload),
+    V1(v1::Payload),
 }
 
 impl TransactionPayload {
@@ -58,6 +60,7 @@ impl TransactionPayload {
         match self {
             TransactionPayload::Legacy(data) => &data.signatures,
             TransactionPayload::V0(data) => &data.signatures,
+            TransactionPayload::V1(data) => &data.signatures,
         }
     }
 
@@ -66,6 +69,7 @@ impl TransactionPayload {
         match self {
             TransactionPayload::Legacy(data) => &data.message,
             TransactionPayload::V0(data) => &data.message,
+            TransactionPayload::V1(data) => &data.message,
         }
     }
 }
@@ -104,6 +108,12 @@ impl VersionedTransaction {
                 payload: TransactionPayload::V0(v0::Payload {
                     signatures,
                     message,
+                }),
+            },
+            VersionedMessage::V1(_) => Self {
+                payload: TransactionPayload::V1(v1::Payload {
+                    message,
+                    signatures,
                 }),
             },
         }
@@ -166,6 +176,12 @@ impl VersionedTransaction {
                     message,
                 }),
             },
+            VersionedMessage::V1(_) => Self {
+                payload: TransactionPayload::V1(v1::Payload {
+                    message,
+                    signatures,
+                }),
+            },
         })
     }
 
@@ -208,6 +224,7 @@ impl VersionedTransaction {
         match self.payload.message() {
             VersionedMessage::Legacy(_) => TransactionVersion::LEGACY,
             VersionedMessage::V0(_) => TransactionVersion::Number(0),
+            VersionedMessage::V1(_) => TransactionVersion::Number(1),
         }
     }
 
