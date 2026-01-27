@@ -2,6 +2,8 @@
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "frozen-abi")]
 use solana_frozen_abi_macro::AbiExample;
+#[cfg(feature = "wincode")]
+use wincode::{SchemaRead, SchemaWrite};
 
 /// Compute budget configuration for V1 transactions.
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample))]
@@ -10,6 +12,7 @@ use solana_frozen_abi_macro::AbiExample;
     derive(Serialize, Deserialize),
     serde(rename_all = "camelCase")
 )]
+#[cfg_attr(feature = "wincode", derive(SchemaWrite, SchemaRead))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct TransactionConfig {
     /// Priority fee in lamports.
@@ -119,7 +122,6 @@ impl From<TransactionConfig> for TransactionConfigMask {
 /// Each bit (or bit pair) corresponds to a specific configuration field.
 /// The config values array contains entries only for fields whose bits are set.
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample))]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct TransactionConfigMask(pub u32);
 
