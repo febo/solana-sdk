@@ -33,7 +33,8 @@ impl SchemaWrite for Payload {
     fn size_of(src: &Self::Src) -> WriteResult<usize> {
         use solana_message::v1::SIGNATURE_SIZE;
 
-        Ok(VersionedMessage::size_of(&src.message)? + src.signatures.len() * SIGNATURE_SIZE)
+        VersionedMessage::size_of(&src.message)
+            .map(|size| size.saturating_add(src.signatures.len().saturating_mul(SIGNATURE_SIZE)))
     }
 
     #[inline(always)]
@@ -56,7 +57,7 @@ impl<'de> SchemaRead<'de> for Payload {
 
         let expected_signatures_len = message.header().num_required_signatures as usize;
 
-        let bytes = reader.fill_exact(expected_signatures_len * SIGNATURE_SIZE)?;
+        let bytes = reader.fill_exact(expected_signatures_len.saturating_mul(SIGNATURE_SIZE))?;
         let mut signatures = Vec::with_capacity(expected_signatures_len);
 
         // SAFETY: signatures vector is allocated with enough capacity to hold

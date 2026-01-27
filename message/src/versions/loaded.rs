@@ -1,7 +1,5 @@
-use crate::VersionedMessage;
-#[cfg(feature = "serde")]
 use {
-    crate::{AccountKeys, LoadedAddresses},
+    crate::{AccountKeys, LoadedAddresses, VersionedMessage},
     solana_address::Address,
     solana_sdk_ids::bpf_loader_upgradeable,
     std::{borrow::Cow, collections::HashSet},
