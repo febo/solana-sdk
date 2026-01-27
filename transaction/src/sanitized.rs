@@ -77,6 +77,11 @@ impl SanitizedTransaction {
                     reserved_account_keys,
                 ))
             }
+            VersionedMessage::V1(_) => SanitizedMessage::V1(LoadedMessage::new(
+                versioned_message,
+                LoadedAddresses::default(),
+                reserved_account_keys,
+            )),
         };
 
         Ok(Self {
@@ -201,7 +206,7 @@ impl SanitizedTransaction {
     pub fn to_versioned_transaction(&self) -> VersionedTransaction {
         let signatures = self.signatures.clone();
         match &self.message {
-            SanitizedMessage::V0(sanitized_msg) => {
+            SanitizedMessage::V0(sanitized_msg) | SanitizedMessage::V1(sanitized_msg) => {
                 VersionedTransaction::new(sanitized_msg.message.clone().into_owned(), signatures)
             }
             SanitizedMessage::Legacy(legacy_message) => VersionedTransaction::new(
@@ -246,7 +251,7 @@ impl SanitizedTransaction {
     /// Return the list of addresses loaded from on-chain address lookup tables
     pub fn get_loaded_addresses(&self) -> LoadedAddresses {
         match &self.message {
-            SanitizedMessage::Legacy(_) => LoadedAddresses::default(),
+            SanitizedMessage::Legacy(_) | SanitizedMessage::V1(_) => LoadedAddresses::default(),
             SanitizedMessage::V0(message) => LoadedAddresses::clone(&message.loaded_addresses),
         }
     }
@@ -262,7 +267,9 @@ impl SanitizedTransaction {
     fn message_data(&self) -> Vec<u8> {
         match &self.message {
             SanitizedMessage::Legacy(legacy_message) => legacy_message.message.serialize(),
-            SanitizedMessage::V0(loaded_msg) => loaded_msg.message.serialize(),
+            SanitizedMessage::V0(loaded_msg) | SanitizedMessage::V1(loaded_msg) => {
+                loaded_msg.message.serialize()
+            }
         }
     }
 

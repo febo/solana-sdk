@@ -1,5 +1,5 @@
 use {
-    crate::versioned::{v0, TransactionPayload, VersionedTransaction},
+    crate::versioned::{v0, v1, TransactionPayload, VersionedTransaction},
     solana_message::SanitizedVersionedMessage,
     solana_sanitize::SanitizeError,
     solana_signature::Signature,
@@ -36,6 +36,13 @@ impl SanitizedVersionedTransaction {
             TransactionPayload::V0(v0::Payload {
                 signatures,
                 message,
+            }) => Self {
+                signatures,
+                message: SanitizedVersionedMessage::try_from(message)?,
+            },
+            TransactionPayload::V1(v1::Payload {
+                message,
+                signatures,
             }) => Self {
                 signatures,
                 message: SanitizedVersionedMessage::try_from(message)?,
