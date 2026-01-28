@@ -6,10 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 use solana_signer::{signers::Signers, SignerError};
 use {
     crate::Transaction,
-    solana_message::{
-        inline_nonce::is_advance_nonce_instruction_data, v1::SIGNATURE_SIZE, VersionedMessage,
-        MESSAGE_VERSION_PREFIX,
-    },
+    solana_message::{inline_nonce::is_advance_nonce_instruction_data, VersionedMessage},
     solana_sanitize::SanitizeError,
     solana_sdk_ids::system_program,
     solana_signature::Signature,
@@ -17,7 +14,11 @@ use {
 };
 #[cfg(feature = "wincode")]
 use {
-    core::{mem::MaybeUninit, ptr::copy_nonoverlapping},
+    core::{
+        mem::MaybeUninit,
+        ptr::{addr_of_mut, copy_nonoverlapping},
+    },
+    solana_message::{v1::SIGNATURE_SIZE, MESSAGE_VERSION_PREFIX},
     wincode::{
         containers, io::Reader, io::Writer, len::ShortU16Len, ReadResult, SchemaRead, SchemaWrite,
         WriteResult,
@@ -170,8 +171,8 @@ impl VersionedTransaction {
     pub fn into_legacy_transaction(self) -> Option<Transaction> {
         match self.message {
             VersionedMessage::Legacy(message) => Some(Transaction {
-                signatures: self.signatures.clone(),
-                message: message.clone(),
+                signatures: self.signatures,
+                message,
             }),
             _ => None,
         }
@@ -285,11 +286,11 @@ impl<'de> SchemaRead<'de> for VersionedTransaction {
             let dst_ptr = dst.as_mut_ptr();
 
             <containers::Vec<Signature, ShortU16Len> as SchemaRead<'de>>::read(reader, unsafe {
-                &mut *(&raw mut (*dst_ptr).signatures).cast::<MaybeUninit<Vec<Signature>>>()
+                &mut *(addr_of_mut!((*dst_ptr).signatures)).cast::<MaybeUninit<Vec<Signature>>>()
             })?;
 
             <VersionedMessage as SchemaRead<'de>>::read(reader, unsafe {
-                &mut *(&raw mut (*dst_ptr).message).cast::<MaybeUninit<_>>()
+                &mut *(addr_of_mut!((*dst_ptr).message)).cast::<MaybeUninit<_>>()
             })?;
         } else {
             // V1 transaction
