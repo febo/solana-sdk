@@ -485,7 +485,9 @@ impl<'de> SchemaRead<'de> for VersionedMessage {
                     let (message, consumed) =
                         deserialize(bytes).map_err(|_| invalid_tag_encoding(1))?;
 
-                    reader.consume(consumed)?;
+                    // SAFETY: `deserialize` validates that we read `consumed` bytes.
+                    unsafe { reader.consume_unchecked(consumed) };
+
                     dst.write(VersionedMessage::V1(message));
 
                     Ok(())
@@ -793,13 +795,7 @@ mod tests {
                 wincode::deserialize(&bytes).expect("Wincode deserialize failed");
 
             match deserialized {
-                VersionedMessage::V1(parsed) => {
-                    assert_eq!(parsed.header, message.header);
-                    assert_eq!(parsed.lifetime_specifier, message.lifetime_specifier);
-                    assert_eq!(parsed.account_keys, message.account_keys);
-                    assert_eq!(parsed.config, message.config);
-                    assert_eq!(parsed.instructions, message.instructions);
-                }
+                VersionedMessage::V1(parsed) => assert_eq!(parsed, message),
                 _ => panic!("Expected V1 message"),
             }
         }

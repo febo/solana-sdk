@@ -35,10 +35,16 @@ pub enum MessageError {
     TransactionTooLarge,
     /// Must have at least one signer (fee payer).
     ZeroSigners,
+    /// Duplicate addresses found in the message.
+    DuplicateAddresses,
+    /// Invalid configuration value.
+    InvalidConfigValue,
+    /// Not enough account keys provided.
+    NotEnoughAccountKeys,
 }
 
-impl std::fmt::Display for MessageError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for MessageError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::BufferTooSmall => write!(f, "buffer too small"),
             Self::InvalidHeapSize => write!(f, "heap size must be a multiple of 1024"),
@@ -68,11 +74,14 @@ impl std::fmt::Display for MessageError {
             Self::TrailingData => write!(f, "unexpected trailing data"),
             Self::TransactionTooLarge => write!(f, "transaction exceeds max size (4096 bytes)"),
             Self::ZeroSigners => write!(f, "must have at least one signer (fee payer)"),
+            Self::DuplicateAddresses => write!(f, "duplicate addresses found in message"),
+            Self::InvalidConfigValue => write!(f, "invalid configuration value"),
+            Self::NotEnoughAccountKeys => write!(f, "not enough account keys provided"),
         }
     }
 }
 
-impl std::error::Error for MessageError {}
+impl core::error::Error for MessageError {}
 
 impl From<MessageError> for SanitizeError {
     fn from(err: MessageError) -> Self {
@@ -86,7 +95,10 @@ impl From<MessageError> for SanitizeError {
             | MessageError::MissingLifetimeSpecifier
             | MessageError::TrailingData
             | MessageError::TransactionTooLarge
-            | MessageError::ZeroSigners => SanitizeError::InvalidValue,
+            | MessageError::ZeroSigners
+            | MessageError::DuplicateAddresses
+            | MessageError::InvalidConfigValue
+            | MessageError::NotEnoughAccountKeys => SanitizeError::InvalidValue,
             MessageError::InvalidInstructionAccountIndex
             | MessageError::InvalidProgramIdIndex
             | MessageError::NotEnoughAddressesForSignatures

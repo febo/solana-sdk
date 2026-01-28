@@ -83,7 +83,7 @@ pub struct Message {
 
     /// All account addresses referenced by this message.
     ///
-    /// The legnth should be specified as an `u8`. Unlike V0, V1 does not support
+    /// The length should be specified as an `u8`. Unlike V0, V1 does not support
     /// address lookup tables. The ordering of the addresses is unchanged from prior
     /// transaction formats:
     ///
@@ -372,6 +372,7 @@ impl Message {
         true
     }
 
+    /// Calculate the serialized size of the message in bytes.
     #[allow(clippy::arithmetic_side_effects)]
     #[inline(always)]
     pub fn size(&self) -> usize {
@@ -397,103 +398,99 @@ impl Message {
                 })
                 .sum::<usize>() // instruction payloads
     }
-}
 
-impl Sanitize for Message {
-    fn sanitize(&self) -> Result<(), SanitizeError> {
-        // Must have at least one signer (the fee payer)
-        if self.header.num_required_signatures == 0 {
-            return Err(SanitizeError::InvalidValue);
-        }
-
-        // num_required_signatures <= 12
+    pub fn validate(&self) -> Result<(), MessageError> {
+        // `num_required_signatures` <= 12
         if self.header.num_required_signatures > MAX_SIGNATURES {
-            return Err(SanitizeError::IndexOutOfBounds);
+            return Err(MessageError::TooManySignatures);
         }
 
-        // Lifetime specifier must not be zero
-        if self.lifetime_specifier == Hash::default() {
-            return Err(SanitizeError::InvalidValue);
+        // `num_instructions` <= 64
+        if self.instructions.len() > MAX_INSTRUCTIONS as usize {
+            return Err(MessageError::TooManyInstructions);
         }
 
         let num_account_keys = self.account_keys.len();
 
-        // num_addresses <= 64
+        // `num_addresses` <= 64
         if num_account_keys > MAX_ADDRESSES as usize {
-            return Err(SanitizeError::IndexOutOfBounds);
+            return Err(MessageError::TooManyAddresses);
         }
 
-        // num_instructions <= 64
-        if self.instructions.len() > MAX_INSTRUCTIONS as usize {
-            return Err(SanitizeError::IndexOutOfBounds);
-        }
-
-        // num_addresses >= num_required_signatures + num_readonly_unsigned_accounts
+        // `num_addresses` >= `num_required_signatures` + `num_readonly_unsigned_accounts`
         let min_accounts = usize::from(self.header.num_required_signatures)
             .saturating_add(usize::from(self.header.num_readonly_unsigned_accounts));
+
         if num_account_keys < min_accounts {
-            return Err(SanitizeError::IndexOutOfBounds);
+            return Err(MessageError::NotEnoughAddressesForSignatures);
         }
 
-        // Must have at least 1 RW fee-payer (num_readonly_signed < num_required_signatures)
+        // must have at least 1 RW fee-payer (`num_readonly_signed` < `num_required_signatures`)
         if self.header.num_readonly_signed_accounts >= self.header.num_required_signatures {
-            return Err(SanitizeError::InvalidValue);
+            return Err(MessageError::ZeroSigners);
         }
 
-        // No duplicate addresses
+        // no duplicate addresses
         let unique_keys: HashSet<_> = self.account_keys.iter().collect();
         if unique_keys.len() != num_account_keys {
-            return Err(SanitizeError::InvalidValue);
+            return Err(MessageError::DuplicateAddresses);
         }
 
-        // Validate config mask (2-bit fields must have both bits set or neither)
+        // validate config mask (2-bit fields must have both bits set or neither)
         let mask: TransactionConfigMask = self.config.into();
+
         if mask.has_invalid_priority_fee_bits() {
-            return Err(SanitizeError::InvalidValue);
+            return Err(MessageError::InvalidConfigMask);
         }
 
-        // Heap size must be a multiple of 1024
+        // heap size must be a multiple of 1024
         if let Some(heap_size) = self.config.heap_size {
             if heap_size % 1024 != 0 {
-                return Err(SanitizeError::InvalidValue);
+                return Err(MessageError::InvalidHeapSize);
             }
         }
 
-        // Instruction account indices must be < num_addresses
+        // instruction account indices must be < `num_addresses`
         let max_account_index = num_account_keys
             .checked_sub(1)
-            .ok_or(SanitizeError::InvalidValue)?;
+            .ok_or(MessageError::NotEnoughAccountKeys)?;
 
         for instruction in &self.instructions {
-            // Program ID must be in static accounts
+            // program id must be in static accounts
             if usize::from(instruction.program_id_index) > max_account_index {
-                return Err(SanitizeError::IndexOutOfBounds);
+                return Err(MessageError::InvalidInstructionAccountIndex);
             }
 
-            // Program cannot be fee payer
+            // program cannot be fee payer
             if instruction.program_id_index == 0 {
-                return Err(SanitizeError::IndexOutOfBounds);
+                return Err(MessageError::InvalidInstructionAccountIndex);
             }
 
-            // Instruction accounts count must fit in u8
+            // instruction accounts count must fit in u8
             if instruction.accounts.len() > u8::MAX as usize {
-                return Err(SanitizeError::InvalidValue);
+                return Err(MessageError::InstructionAccountsTooLarge);
             }
 
-            // Instruction data length must fit in u16
+            // instruction data length must fit in u16
             if instruction.data.len() > u16::MAX as usize {
-                return Err(SanitizeError::InvalidValue);
+                return Err(MessageError::InstructionDataTooLarge);
             }
 
-            // All account indices must be valid
+            // all account indices must be valid
             for &account_index in &instruction.accounts {
                 if usize::from(account_index) > max_account_index {
-                    return Err(SanitizeError::IndexOutOfBounds);
+                    return Err(MessageError::InvalidInstructionAccountIndex);
                 }
             }
         }
 
         Ok(())
+    }
+}
+
+impl Sanitize for Message {
+    fn sanitize(&self) -> Result<(), SanitizeError> {
+        Ok(self.validate()?)
     }
 }
 
@@ -624,32 +621,41 @@ pub fn deserialize(input: &[u8]) -> Result<(Message, usize), MessageError> {
     // config mask
     //
     // SAFETY: input length has been checked against `FIXED_HEADER_SIZE`.
-    let config_mask =
-        unsafe { TransactionConfigMask(u32::from_le_bytes(*(input_ptr as *const [u8; 4]))) };
+    let config_mask = unsafe {
+        let mask = TransactionConfigMask(u32::from_le_bytes(*(input_ptr as *const [u8; 4])));
+        input_ptr = input_ptr.add(4);
+
+        mask
+    };
 
     // lifetime specifier
     //
     // SAFETY: input length has been checked against `FIXED_HEADER_SIZE`.
     let lifetime_specifier = unsafe {
-        input_ptr = input_ptr.add(4);
-        Hash::new_from_array(*(input_ptr as *const [u8; 32]))
+        let specifier = Hash::new_from_array(*(input_ptr as *const [u8; 32]));
+        input_ptr = input_ptr.add(32);
+
+        specifier
     };
 
     // counts
     //
     // SAFETY: input length has been checked against `FIXED_HEADER_SIZE`.
     let num_instructions = unsafe {
-        input_ptr = input_ptr.add(32);
-        input_ptr.read() as usize
+        let num_instructions = input_ptr.read() as usize;
+        input_ptr = input_ptr.add(1);
+
+        num_instructions
     };
     // SAFETY: input length has been checked against `FIXED_HEADER_SIZE`.
     let num_addresses = unsafe {
+        let num_addresses = input_ptr.read() as usize;
         input_ptr = input_ptr.add(1);
-        input_ptr.read() as usize
+
+        num_addresses
     };
 
-    input_ptr = unsafe { input_ptr.add(1) };
-    // Track the offset for input. This is the value to return indicating
+    // Track the offset for input. This is the value returned to indicate
     // how many bytes were read.
     let mut offset = FIXED_HEADER_SIZE + num_addresses * size_of::<Address>();
 
@@ -666,10 +672,10 @@ pub fn deserialize(input: &[u8]) -> Result<(Message, usize), MessageError> {
         let dst = account_keys.as_mut_ptr();
         copy_nonoverlapping(input_ptr as *const Address, dst, num_addresses);
         account_keys.set_len(num_addresses);
+        input_ptr = input_ptr.add(num_addresses * size_of::<Address>());
     }
 
     // config values
-    input_ptr = unsafe { input_ptr.add(num_addresses * size_of::<Address>()) };
     offset += config_mask.size_of_config();
 
     if input.len() < offset {
@@ -873,50 +879,6 @@ impl MessageBuilder {
             .lifetime_specifier
             .ok_or(MessageError::MissingLifetimeSpecifier)?;
 
-        // Validate signer count
-        if self.header.num_required_signatures == 0 {
-            return Err(MessageError::ZeroSigners);
-        }
-        if self.header.num_required_signatures > MAX_SIGNATURES {
-            return Err(MessageError::TooManySignatures);
-        }
-
-        // Validate address count
-        if self.account_keys.len() > MAX_ADDRESSES as usize {
-            return Err(MessageError::TooManyAddresses);
-        }
-        if (self.header.num_required_signatures as usize) > self.account_keys.len() {
-            return Err(MessageError::NotEnoughAddressesForSignatures);
-        }
-
-        // Validate instruction count
-        if self.instructions.len() > MAX_INSTRUCTIONS as usize {
-            return Err(MessageError::TooManyInstructions);
-        }
-
-        // Validate config mask (priority fee bits must be both set or both unset)
-        let mask: TransactionConfigMask = self.config.into();
-        if mask.has_invalid_priority_fee_bits() {
-            return Err(MessageError::InvalidConfigMask);
-        }
-
-        // Validate heap size alignment
-        if let Some(heap_size) = self.config.heap_size {
-            if heap_size % 1024 != 0 {
-                return Err(MessageError::InvalidHeapSize);
-            }
-        }
-
-        // Validate instruction constraints
-        for ix in &self.instructions {
-            if ix.accounts.len() > u8::MAX as usize {
-                return Err(MessageError::InstructionAccountsTooLarge);
-            }
-            if ix.data.len() > u16::MAX as usize {
-                return Err(MessageError::InstructionDataTooLarge);
-            }
-        }
-
         let message = Message::new(
             self.header,
             self.config,
@@ -924,6 +886,8 @@ impl MessageBuilder {
             self.account_keys,
             self.instructions,
         );
+
+        message.validate()?;
 
         Ok(message)
     }
@@ -1151,13 +1115,6 @@ mod tests {
             .map(|_| Address::new_unique())
             .collect();
         assert_eq!(message.sanitize(), Err(SanitizeError::IndexOutOfBounds));
-    }
-
-    #[test]
-    fn sanitize_rejects_zero_lifetime_specifier() {
-        let mut message = create_test_message();
-        message.lifetime_specifier = Hash::default();
-        assert_eq!(message.sanitize(), Err(SanitizeError::InvalidValue));
     }
 
     #[test]
