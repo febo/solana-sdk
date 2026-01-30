@@ -22,7 +22,6 @@ impl TryFrom<VersionedTransaction> for SanitizedVersionedTransaction {
 impl SanitizedVersionedTransaction {
     pub fn try_new(tx: VersionedTransaction) -> Result<Self, SanitizeError> {
         tx.sanitize_signatures()?;
-
         Ok(Self {
             signatures: tx.signatures,
             message: SanitizedVersionedMessage::try_from(tx.message)?,
@@ -51,10 +50,10 @@ mod tests {
     #[test]
     fn test_try_new_with_invalid_signatures() {
         let tx = VersionedTransaction {
+            signatures: vec![],
             message: VersionedMessage::V0(
                 v0::Message::try_compile(&Pubkey::new_unique(), &[], &[], Hash::default()).unwrap(),
             ),
-            signatures: vec![],
         };
 
         assert_eq!(
@@ -70,8 +69,8 @@ mod tests {
         message.header.num_readonly_signed_accounts += 1;
 
         let tx = VersionedTransaction {
-            message: VersionedMessage::V0(message),
             signatures: vec![Signature::default()],
+            message: VersionedMessage::V0(message),
         };
 
         assert_eq!(
