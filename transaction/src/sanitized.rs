@@ -3,8 +3,11 @@ use {
     solana_address::Address,
     solana_hash::Hash,
     solana_message::{
-        legacy, AddressLoader, LegacyMessage, LoadedAddresses, LoadedMessage, SanitizedMessage,
-        SanitizedVersionedMessage, VersionedMessage,
+        legacy,
+        v0::{self, LoadedAddresses},
+        v1::{self, CachedMessage},
+        AddressLoader, LegacyMessage, SanitizedMessage, SanitizedVersionedMessage,
+        VersionedMessage,
     },
     solana_signature::Signature,
     solana_transaction_error::{TransactionError, TransactionResult},
@@ -68,20 +71,18 @@ impl SanitizedTransaction {
             VersionedMessage::Legacy(message) => {
                 SanitizedMessage::Legacy(LegacyMessage::new(message, reserved_account_keys))
             }
-            VersionedMessage::V0(ref message) => {
+            VersionedMessage::V0(message) => {
                 let loaded_addresses =
                     address_loader.load_addresses(&message.address_table_lookups)?;
-                SanitizedMessage::V0(LoadedMessage::new(
-                    versioned_message,
+                SanitizedMessage::V0(v0::LoadedMessage::new(
+                    message,
                     loaded_addresses,
                     reserved_account_keys,
                 ))
             }
-            VersionedMessage::V1(_) => SanitizedMessage::V1(LoadedMessage::new(
-                versioned_message,
-                LoadedAddresses::default(),
-                reserved_account_keys,
-            )),
+            VersionedMessage::V1(message) => {
+                SanitizedMessage::V1(CachedMessage::new(message, reserved_account_keys))
+            }
         };
 
         Ok(Self {
@@ -206,14 +207,16 @@ impl SanitizedTransaction {
     pub fn to_versioned_transaction(&self) -> VersionedTransaction {
         let signatures = self.signatures.clone();
         match &self.message {
-            SanitizedMessage::V0(sanitized_msg) | SanitizedMessage::V1(sanitized_msg) => {
-                VersionedTransaction {
-                    message: sanitized_msg.message.clone().into_owned(),
-                    signatures,
-                }
-            }
             SanitizedMessage::Legacy(legacy_message) => VersionedTransaction {
                 message: VersionedMessage::Legacy(legacy::Message::clone(&legacy_message.message)),
+                signatures,
+            },
+            SanitizedMessage::V0(sanitized_msg) => VersionedTransaction {
+                signatures,
+                message: VersionedMessage::V0(v0::Message::clone(&sanitized_msg.message)),
+            },
+            SanitizedMessage::V1(sanitized_msg) => VersionedTransaction {
+                message: VersionedMessage::V1(v1::Message::clone(&sanitized_msg.message)),
                 signatures,
             },
         }
@@ -270,9 +273,8 @@ impl SanitizedTransaction {
     fn message_data(&self) -> Vec<u8> {
         match &self.message {
             SanitizedMessage::Legacy(legacy_message) => legacy_message.message.serialize(),
-            SanitizedMessage::V0(loaded_msg) | SanitizedMessage::V1(loaded_msg) => {
-                loaded_msg.message.serialize()
-            }
+            SanitizedMessage::V0(loaded_msg) => loaded_msg.message.serialize(),
+            SanitizedMessage::V1(cached_msg) => v1::serialize(&cached_msg.message),
         }
     }
 

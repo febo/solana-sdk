@@ -511,42 +511,6 @@ impl<'de> SchemaRead<'de> for VersionedMessage {
     }
 }
 
-/// Collection of addresses loaded from on-chain lookup tables, split
-/// by readonly and writable.
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct LoadedAddresses {
-    /// List of addresses for writable loaded accounts
-    pub writable: Vec<Address>,
-    /// List of addresses for read-only loaded accounts
-    pub readonly: Vec<Address>,
-}
-
-impl FromIterator<LoadedAddresses> for LoadedAddresses {
-    fn from_iter<T: IntoIterator<Item = LoadedAddresses>>(iter: T) -> Self {
-        let (writable, readonly): (Vec<Vec<Address>>, Vec<Vec<Address>>) = iter
-            .into_iter()
-            .map(|addresses| (addresses.writable, addresses.readonly))
-            .unzip();
-        LoadedAddresses {
-            writable: writable.into_iter().flatten().collect(),
-            readonly: readonly.into_iter().flatten().collect(),
-        }
-    }
-}
-
-impl LoadedAddresses {
-    /// Checks if there are no writable or readonly addresses
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Combined length of loaded writable and readonly addresses
-    pub fn len(&self) -> usize {
-        self.writable.len().saturating_add(self.readonly.len())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use {

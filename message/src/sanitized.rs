@@ -2,10 +2,9 @@ use {
     crate::{
         compiled_instruction::CompiledInstruction,
         legacy,
-        v0::{self, LoadedMessage},
+        v0::{self, LoadedAddresses},
         v1::CachedMessage,
-        AccountKeys, AddressLoader, LoadedAddresses, MessageHeader, SanitizedVersionedMessage,
-        VersionedMessage,
+        AccountKeys, AddressLoader, MessageHeader, SanitizedVersionedMessage, VersionedMessage,
     },
     solana_address::Address,
     solana_hash::Hash,
@@ -80,7 +79,7 @@ pub enum SanitizedMessage {
     /// Sanitized legacy message
     Legacy(LegacyMessage<'static>),
     /// Sanitized version #0 message with dynamically loaded addresses
-    V0(LoadedMessage<'static>),
+    V0(v0::LoadedMessage<'static>),
     /// Sanitized version #1 message (4KB transactions, no address lookup tables)
     V1(CachedMessage<'static>),
 }
@@ -98,11 +97,11 @@ impl SanitizedMessage {
             VersionedMessage::Legacy(message) => {
                 SanitizedMessage::Legacy(LegacyMessage::new(message, reserved_account_keys))
             }
-            VersionedMessage::V0(ref message) => {
+            VersionedMessage::V0(message) => {
                 let loaded_addresses =
                     address_loader.load_addresses(&message.address_table_lookups)?;
-                SanitizedMessage::V0(LoadedMessage::new(
-                    sanitized_msg.message,
+                SanitizedMessage::V0(v0::LoadedMessage::new(
+                    message,
                     loaded_addresses,
                     reserved_account_keys,
                 ))
@@ -139,7 +138,7 @@ impl SanitizedMessage {
     pub fn header(&self) -> &MessageHeader {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.header,
-            Self::V0(loaded_msg) => loaded_msg.message.header(),
+            Self::V0(loaded_msg) => &loaded_msg.message.header,
             Self::V1(cached_msg) => &cached_msg.message.header,
         }
     }
@@ -164,7 +163,7 @@ impl SanitizedMessage {
     pub fn recent_blockhash(&self) -> &Hash {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.recent_blockhash,
-            Self::V0(loaded_msg) => loaded_msg.message.recent_blockhash(),
+            Self::V0(loaded_msg) => &loaded_msg.message.recent_blockhash,
             Self::V1(cached_msg) => &cached_msg.message.lifetime_specifier,
         }
     }
@@ -174,7 +173,7 @@ impl SanitizedMessage {
     pub fn instructions(&self) -> &[CompiledInstruction] {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.instructions,
-            Self::V0(loaded_msg) => loaded_msg.message.instructions(),
+            Self::V0(loaded_msg) => &loaded_msg.message.instructions,
             Self::V1(cached_msg) => &cached_msg.message.instructions,
         }
     }
@@ -198,7 +197,7 @@ impl SanitizedMessage {
     pub fn static_account_keys(&self) -> &[Address] {
         match self {
             Self::Legacy(legacy_message) => &legacy_message.message.account_keys,
-            Self::V0(loaded_msg) => loaded_msg.message.static_account_keys(),
+            Self::V0(loaded_msg) => &loaded_msg.message.account_keys,
             Self::V1(cached_msg) => &cached_msg.message.account_keys,
         }
     }
@@ -215,10 +214,7 @@ impl SanitizedMessage {
     /// Returns the list of account keys used for account lookup tables.
     pub fn message_address_table_lookups(&self) -> &[v0::MessageAddressTableLookup] {
         match self {
-            Self::V0(LoadedMessage {
-                message: Cow::Borrowed(VersionedMessage::V0(message)),
-                ..
-            }) => &message.address_table_lookups,
+            Self::V0(message) => &message.message.address_table_lookups,
             // Legacy and V1 messages do not have address table lookups.
             _ => &[],
         }
@@ -507,8 +503,8 @@ mod tests {
 
         assert_eq!(legacy_message.num_readonly_accounts(), 2);
 
-        let v0_message = SanitizedMessage::V0(LoadedMessage::new(
-            VersionedMessage::V0(v0::Message {
+        let v0_message = SanitizedMessage::V0(v0::LoadedMessage::new(
+            v0::Message {
                 header: MessageHeader {
                     num_required_signatures: 2,
                     num_readonly_signed_accounts: 1,
@@ -516,7 +512,7 @@ mod tests {
                 },
                 account_keys: vec![key0, key1, key2, key3],
                 ..v0::Message::default()
-            }),
+            },
             LoadedAddresses {
                 writable: vec![key4],
                 readonly: vec![key5],
@@ -609,8 +605,8 @@ mod tests {
             }
         }
 
-        let v0_message = SanitizedMessage::V0(LoadedMessage::new(
-            VersionedMessage::V0(v0::Message {
+        let v0_message = SanitizedMessage::V0(v0::LoadedMessage::new(
+            v0::Message {
                 header: MessageHeader {
                     num_required_signatures: 2,
                     num_readonly_signed_accounts: 1,
@@ -618,7 +614,7 @@ mod tests {
                 },
                 account_keys: vec![key0, key1, key2, key3],
                 ..v0::Message::default()
-            }),
+            },
             LoadedAddresses {
                 writable: vec![key4],
                 readonly: vec![key5],
@@ -712,12 +708,12 @@ mod tests {
         .unwrap();
         assert_eq!(legacy_message.static_account_keys(), &keys);
 
-        let v0_message = SanitizedMessage::V0(LoadedMessage::new(
-            VersionedMessage::V0(v0::Message {
+        let v0_message = SanitizedMessage::V0(v0::LoadedMessage::new(
+            v0::Message {
                 header,
                 account_keys: keys.clone(),
                 ..v0::Message::default()
-            }),
+            },
             LoadedAddresses {
                 writable: vec![],
                 readonly: vec![],
@@ -726,12 +722,12 @@ mod tests {
         ));
         assert_eq!(v0_message.static_account_keys(), &keys);
 
-        let v0_message = SanitizedMessage::V0(LoadedMessage::new(
-            VersionedMessage::V0(v0::Message {
+        let v0_message = SanitizedMessage::V0(v0::LoadedMessage::new(
+            v0::Message {
                 header,
                 account_keys: keys.clone(),
                 ..v0::Message::default()
-            }),
+            },
             LoadedAddresses {
                 writable: vec![Address::new_unique()],
                 readonly: vec![Address::new_unique()],

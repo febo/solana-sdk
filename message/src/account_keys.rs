@@ -1,5 +1,5 @@
 use {
-    crate::{compiled_instruction::CompiledInstruction, CompileError, LoadedAddresses},
+    crate::{compiled_instruction::CompiledInstruction, v0::LoadedAddresses, CompileError},
     solana_address::Address,
     solana_instruction::Instruction,
     std::{collections::BTreeMap, iter::zip, ops::Index},
