@@ -9,6 +9,7 @@
 //! [`v0`]: crate::v0
 //! [future message format]: https://docs.solanalabs.com/proposals/versioned-transactions
 
+pub use loaded::*;
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "frozen-abi")]
@@ -30,7 +31,6 @@ use {
 };
 
 mod loaded;
-pub use loaded::LoadedMessage;
 
 /// Address table lookups describe an on-chain address lookup table to use
 /// for loading more readonly and writable accounts in a single tx.

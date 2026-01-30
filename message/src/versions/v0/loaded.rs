@@ -1,5 +1,7 @@
+#[cfg(feature = "serde")]
+use serde_derive::{Deserialize, Serialize};
 use {
-    crate::{AccountKeys, LoadedAddresses, VersionedMessage},
+    crate::{v0, AccountKeys},
     solana_address::Address,
     solana_sdk_ids::bpf_loader_upgradeable,
     std::{borrow::Cow, collections::HashSet},
@@ -9,7 +11,7 @@ use {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct LoadedMessage<'a> {
     /// Message which loaded a collection of lookup table addresses
-    pub message: Cow<'a, VersionedMessage>,
+    pub message: Cow<'a, v0::Message>,
     /// Addresses loaded with on-chain address lookup tables
     pub loaded_addresses: Cow<'a, LoadedAddresses>,
     /// List of boolean with same length as account_keys(), each boolean value indicates if
@@ -17,9 +19,45 @@ pub struct LoadedMessage<'a> {
     pub is_writable_account_cache: Vec<bool>,
 }
 
+/// Collection of addresses loaded from on-chain lookup tables, split
+/// by readonly and writable.
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct LoadedAddresses {
+    /// List of addresses for writable loaded accounts
+    pub writable: Vec<Address>,
+    /// List of addresses for read-only loaded accounts
+    pub readonly: Vec<Address>,
+}
+
+impl FromIterator<LoadedAddresses> for LoadedAddresses {
+    fn from_iter<T: IntoIterator<Item = LoadedAddresses>>(iter: T) -> Self {
+        let (writable, readonly): (Vec<Vec<Address>>, Vec<Vec<Address>>) = iter
+            .into_iter()
+            .map(|addresses| (addresses.writable, addresses.readonly))
+            .unzip();
+        LoadedAddresses {
+            writable: writable.into_iter().flatten().collect(),
+            readonly: readonly.into_iter().flatten().collect(),
+        }
+    }
+}
+
+impl LoadedAddresses {
+    /// Checks if there are no writable or readonly addresses
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Combined length of loaded writable and readonly addresses
+    pub fn len(&self) -> usize {
+        self.writable.len().saturating_add(self.readonly.len())
+    }
+}
+
 impl<'a> LoadedMessage<'a> {
     pub fn new(
-        message: VersionedMessage,
+        message: v0::Message,
         loaded_addresses: LoadedAddresses,
         reserved_account_keys: &HashSet<Address>,
     ) -> Self {
@@ -33,7 +71,7 @@ impl<'a> LoadedMessage<'a> {
     }
 
     pub fn new_borrowed(
-        message: &'a VersionedMessage,
+        message: &'a v0::Message,
         loaded_addresses: &'a LoadedAddresses,
         reserved_account_keys: &HashSet<Address>,
     ) -> Self {
@@ -62,14 +100,14 @@ impl<'a> LoadedMessage<'a> {
     /// Returns the full list of static and dynamic account keys that are loaded for this message.
     pub fn account_keys(&self) -> AccountKeys<'_> {
         AccountKeys::new(
-            self.message.static_account_keys(),
-            Some(&self.loaded_addresses),
+            &self.message.account_keys,
+            Some(self.loaded_addresses.as_ref()),
         )
     }
 
     /// Returns the list of static account keys that are loaded for this message.
     pub fn static_account_keys(&self) -> &[Address] {
-        self.message.static_account_keys()
+        &self.message.account_keys
     }
 
     /// Returns true if any account keys are duplicates
@@ -81,8 +119,8 @@ impl<'a> LoadedMessage<'a> {
     /// Returns true if the account at the specified index was requested to be
     /// writable.  This method should not be used directly.
     fn is_writable_index(&self, key_index: usize) -> bool {
-        let header = &self.message.header();
-        let num_account_keys = self.message.static_account_keys().len();
+        let header = &self.message.header;
+        let num_account_keys = self.message.account_keys.len();
         let num_signed_accounts = usize::from(header.num_required_signatures);
         if key_index >= num_account_keys {
             let loaded_addresses_index = key_index.saturating_sub(num_account_keys);
@@ -122,7 +160,7 @@ impl<'a> LoadedMessage<'a> {
     }
 
     pub fn is_signer(&self, i: usize) -> bool {
-        i < self.message.header().num_required_signatures as usize
+        i < self.message.header.num_required_signatures as usize
     }
 
     pub fn demote_program_id(&self, i: usize) -> bool {
@@ -133,7 +171,7 @@ impl<'a> LoadedMessage<'a> {
     pub fn is_key_called_as_program(&self, key_index: usize) -> bool {
         if let Ok(key_index) = u8::try_from(key_index) {
             self.message
-                .instructions()
+                .instructions
                 .iter()
                 .any(|ix| ix.program_id_index == key_index)
         } else {
@@ -153,7 +191,7 @@ impl<'a> LoadedMessage<'a> {
 mod tests {
     use {
         super::*,
-        crate::{compiled_instruction::CompiledInstruction, v0, MessageHeader},
+        crate::{compiled_instruction::CompiledInstruction, MessageHeader},
         itertools::Itertools,
         solana_sdk_ids::{system_program, sysvar},
     };
@@ -167,7 +205,7 @@ mod tests {
         let key5 = Address::new_unique();
 
         let message = LoadedMessage::new(
-            VersionedMessage::V0(v0::Message {
+            v0::Message {
                 header: MessageHeader {
                     num_required_signatures: 2,
                     num_readonly_signed_accounts: 1,
@@ -175,7 +213,7 @@ mod tests {
                 },
                 account_keys: vec![key0, key1, key2, key3],
                 ..v0::Message::default()
-            }),
+            },
             LoadedAddresses {
                 writable: vec![key4],
                 readonly: vec![key5],
@@ -197,10 +235,10 @@ mod tests {
     fn test_has_duplicates_with_dupe_keys() {
         let create_message_with_dupe_keys = |mut keys: Vec<Address>| {
             LoadedMessage::new(
-                VersionedMessage::V0(v0::Message {
+                v0::Message {
                     account_keys: keys.split_off(2),
                     ..v0::Message::default()
-                }),
+                },
                 LoadedAddresses {
                     writable: keys.split_off(2),
                     readonly: keys,
@@ -240,7 +278,7 @@ mod tests {
         let reserved_account_keys = HashSet::from_iter([sysvar::clock::id(), system_program::id()]);
         let create_message_with_keys = |keys: Vec<Address>| {
             LoadedMessage::new(
-                VersionedMessage::V0(v0::Message {
+                v0::Message {
                     header: MessageHeader {
                         num_required_signatures: 1,
                         num_readonly_signed_accounts: 0,
@@ -248,7 +286,7 @@ mod tests {
                     },
                     account_keys: keys[..2].to_vec(),
                     ..v0::Message::default()
-                }),
+                },
                 LoadedAddresses {
                     writable: keys[2..=2].to_vec(),
                     readonly: keys[3..].to_vec(),
@@ -285,7 +323,7 @@ mod tests {
         let key1 = Address::new_unique();
         let key2 = Address::new_unique();
         let message = LoadedMessage::new(
-            VersionedMessage::V0(v0::Message {
+            v0::Message {
                 header: MessageHeader {
                     num_required_signatures: 1,
                     num_readonly_signed_accounts: 0,
@@ -298,7 +336,7 @@ mod tests {
                     data: vec![],
                 }],
                 ..v0::Message::default()
-            }),
+            },
             LoadedAddresses {
                 writable: vec![key1, key2],
                 readonly: vec![],
