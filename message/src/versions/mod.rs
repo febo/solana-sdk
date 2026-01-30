@@ -204,17 +204,7 @@ impl VersionedMessage {
     pub fn hash_raw_message(message_bytes: &[u8]) -> Hash {
         use blake3::traits::digest::Digest;
         let mut hasher = blake3::Hasher::new();
-
-        // The first byte on a versioned message indicates the version.
-        if let Some(&first_byte) = message_bytes.first() {
-            if first_byte & MESSAGE_VERSION_PREFIX != 0 {
-                let version = first_byte & !MESSAGE_VERSION_PREFIX;
-                hasher.update(format!("solana-tx-message-v{version}").as_bytes());
-            }
-            // TODO: Legacy messages (first byte < 0x80) get no domain prefix.
-            // This does not seem to be the current behaviour.
-        }
-
+        hasher.update(b"solana-tx-message-v1");
         hasher.update(message_bytes);
         let hash_bytes: [u8; solana_hash::HASH_BYTES] = hasher.finalize().into();
         hash_bytes.into()
