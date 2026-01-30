@@ -64,10 +64,8 @@ impl SanitizedTransaction {
         reserved_account_keys: &HashSet<Address>,
     ) -> TransactionResult<Self> {
         let signatures = tx.signatures;
-        let SanitizedVersionedMessage {
-            message: versioned_message,
-        } = tx.message;
-        let message = match versioned_message {
+        let SanitizedVersionedMessage { message } = tx.message;
+        let message = match message {
             VersionedMessage::Legacy(message) => {
                 SanitizedMessage::Legacy(LegacyMessage::new(message, reserved_account_keys))
             }
