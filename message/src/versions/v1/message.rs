@@ -312,7 +312,7 @@ impl Message {
     ///
     /// Account keys are ordered: `[writable signers][readonly signers][writable non-signers][readonly non-signers]`.
     /// This checks which region the index falls into based on the header counts.
-    fn is_writable_index(&self, key_index: usize) -> bool {
+    pub fn is_writable_index(&self, key_index: usize) -> bool {
         let num_account_keys = self.account_keys.len();
         let num_signed_accounts = usize::from(self.header.num_required_signatures);
 
@@ -370,6 +370,10 @@ impl Message {
         }
 
         true
+    }
+
+    pub fn demote_program_id(&self, i: usize) -> bool {
+        self.is_key_called_as_program(i) && !self.is_upgradeable_loader_present()
     }
 
     /// Calculate the serialized size of the message in bytes.
