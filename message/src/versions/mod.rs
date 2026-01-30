@@ -33,12 +33,11 @@ use {
     std::fmt,
 };
 
-mod loaded;
 mod sanitized;
 pub mod v0;
 pub mod v1;
 
-pub use {loaded::*, sanitized::*};
+pub use sanitized::*;
 
 /// Bit mask that indicates whether a serialized message is versioned.
 pub const MESSAGE_VERSION_PREFIX: u8 = 0x80;

@@ -1,11 +1,12 @@
 use crate::{MessageHeader, MESSAGE_VERSION_PREFIX};
 
+mod cached;
 mod config;
 mod error;
 mod message;
 
 use solana_hash::Hash;
-pub use {config::*, error::*, message::*};
+pub use {cached::*, config::*, error::*, message::*};
 
 /// Version byte for V1 messages (decimal 129).
 pub const V1_VERSION_BYTE: u8 = MESSAGE_VERSION_PREFIX | 1;

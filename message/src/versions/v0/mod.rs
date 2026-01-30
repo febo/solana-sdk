@@ -29,6 +29,9 @@ use {
     std::collections::HashSet,
 };
 
+mod loaded;
+pub use loaded::LoadedMessage;
+
 /// Address table lookups describe an on-chain address lookup table to use
 /// for loading more readonly and writable accounts in a single tx.
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample))]
