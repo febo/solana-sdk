@@ -172,6 +172,7 @@ impl VersionedMessage {
         }
     }
 
+    // V1 add +1 for message version prefix
     #[allow(clippy::arithmetic_side_effects)]
     #[cfg(feature = "wincode")]
     pub fn serialize(&self) -> Vec<u8> {
@@ -407,18 +408,18 @@ impl<'de> serde::Deserialize<'de> for VersionedMessage {
 impl SchemaWrite for VersionedMessage {
     type Src = Self;
 
+    // V0 and V1 add +1 for message version prefix
     #[allow(clippy::arithmetic_side_effects)]
     #[inline(always)]
     fn size_of(src: &Self::Src) -> WriteResult<usize> {
         match src {
             VersionedMessage::Legacy(message) => LegacyMessage::size_of(message),
-            // +1 for message version prefix
-            #[expect(clippy::arithmetic_side_effects)]
             VersionedMessage::V0(message) => Ok(1 + v0::Message::size_of(message)?),
             VersionedMessage::V1(message) => Ok(1 + message.size()),
         }
     }
 
+    // V0 and V1 add +1 for message version prefix
     #[allow(clippy::arithmetic_side_effects)]
     #[inline(always)]
     fn write(writer: &mut impl Writer, src: &Self::Src) -> WriteResult<()> {

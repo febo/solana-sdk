@@ -99,10 +99,7 @@ impl<'a> LoadedMessage<'a> {
 
     /// Returns the full list of static and dynamic account keys that are loaded for this message.
     pub fn account_keys(&self) -> AccountKeys<'_> {
-        AccountKeys::new(
-            &self.message.account_keys,
-            Some(self.loaded_addresses.as_ref()),
-        )
+        AccountKeys::new(&self.message.account_keys, Some(&self.loaded_addresses))
     }
 
     /// Returns the list of static account keys that are loaded for this message.
