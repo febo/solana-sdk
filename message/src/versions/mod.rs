@@ -172,25 +172,9 @@ impl VersionedMessage {
         }
     }
 
-    // V1 add +1 for message version prefix
-    #[allow(clippy::arithmetic_side_effects)]
     #[cfg(feature = "wincode")]
     pub fn serialize(&self) -> Vec<u8> {
-        match self {
-            Self::V1(message) => {
-                let total = message.size();
-                let mut buffer: Vec<u8> = Vec::with_capacity(1 + total);
-                // SAFETY: buffer has sufficient capacity for serialization.
-                unsafe {
-                    let ptr = buffer.as_mut_ptr();
-                    ptr.write(MESSAGE_VERSION_PREFIX | 1);
-                    v1::serialize_into(message, ptr.add(1));
-                    buffer.set_len(1 + total);
-                }
-                buffer
-            }
-            _ => wincode::serialize(self).unwrap(),
-        }
+        wincode::serialize(self).unwrap()
     }
 
     #[cfg(all(feature = "wincode", feature = "blake3"))]
