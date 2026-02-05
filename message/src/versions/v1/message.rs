@@ -37,7 +37,14 @@ use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "frozen-abi")]
 use solana_frozen_abi_macro::AbiExample;
 #[cfg(feature = "wincode")]
-use wincode::{containers, len::ShortU16Len, SchemaRead, SchemaWrite};
+use {
+    crate::v1::MAX_TRANSACTION_SIZE,
+    wincode::{
+        error::invalid_tag_encoding,
+        io::{Reader, Writer},
+        ReadResult, SchemaRead, SchemaWrite, WriteResult,
+    },
+};
 use {
     crate::{
         compiled_instruction::CompiledInstruction,
@@ -69,7 +76,6 @@ use {
     derive(Serialize, Deserialize),
     serde(rename_all = "camelCase")
 )]
-#[cfg_attr(feature = "wincode", derive(SchemaWrite, SchemaRead))]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Message {
     /// The message header describing signer/readonly account counts.
@@ -100,12 +106,10 @@ pub struct Message {
     ///   - `num_readonly_unsigned_accounts` addresses for which the transaction does not
     ///     contain signatures and are loaded as readonly.
     #[cfg_attr(feature = "serde", serde(with = "solana_short_vec"))]
-    #[cfg_attr(feature = "wincode", wincode(with = "containers::Vec<_, ShortU16Len>"))]
     pub account_keys: Vec<Address>,
 
     /// Program instructions to execute.
     #[cfg_attr(feature = "serde", serde(with = "solana_short_vec"))]
-    #[cfg_attr(feature = "wincode", wincode(with = "containers::Vec<_, ShortU16Len>"))]
     pub instructions: Vec<CompiledInstruction>,
 }
 
@@ -531,6 +535,45 @@ impl Message {
 impl Sanitize for Message {
     fn sanitize(&self) -> Result<(), SanitizeError> {
         Ok(self.validate()?)
+    }
+}
+
+#[cfg(feature = "wincode")]
+impl SchemaWrite for Message {
+    type Src = Self;
+
+    #[allow(clippy::arithmetic_side_effects)]
+    #[inline(always)]
+    fn size_of(src: &Self::Src) -> WriteResult<usize> {
+        Ok(src.size())
+    }
+
+    // V0 and V1 add +1 for message version prefix
+    #[inline(always)]
+    fn write(writer: &mut impl Writer, src: &Self::Src) -> WriteResult<()> {
+        // SAFETY: Serializing a slice of `[u8]`.
+        unsafe {
+            writer
+                .write_slice_t(&serialize(src))
+                .map_err(wincode::WriteError::Io)
+        }
+    }
+}
+
+#[cfg(feature = "wincode")]
+impl<'de> SchemaRead<'de> for Message {
+    type Dst = Self;
+
+    fn read(reader: &mut impl Reader<'de>, dst: &mut MaybeUninit<Self::Dst>) -> ReadResult<()> {
+        let bytes = reader.fill_buf(MAX_TRANSACTION_SIZE)?;
+        let (message, consumed) = deserialize(bytes).map_err(|_| invalid_tag_encoding(1))?;
+
+        // SAFETY: `deserialize` validates that we read `consumed` bytes.
+        unsafe { reader.consume_unchecked(consumed) };
+
+        dst.write(message);
+
+        Ok(())
     }
 }
 
