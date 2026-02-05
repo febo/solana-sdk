@@ -2,8 +2,6 @@
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "frozen-abi")]
 use solana_frozen_abi_macro::AbiExample;
-#[cfg(feature = "wincode")]
-use wincode::{SchemaRead, SchemaWrite};
 
 /// Compute budget configuration for V1 transactions.
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample))]
@@ -12,16 +10,15 @@ use wincode::{SchemaRead, SchemaWrite};
     derive(Serialize, Deserialize),
     serde(rename_all = "camelCase")
 )]
-#[cfg_attr(feature = "wincode", derive(SchemaWrite, SchemaRead))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct TransactionConfig {
     /// Priority fee in lamports.
     pub priority_fee: Option<u64>,
 
-    /// Maximum compute units. None means use runtime default.
+    /// Maximum compute units. None means use `0`.
     pub compute_unit_limit: Option<u32>,
 
-    /// Maximum bytes of account data that may be loaded. None means use runtime default.
+    /// Maximum bytes of account data that may be loaded. None means use `0`.
     pub loaded_accounts_data_size_limit: Option<u32>,
 
     /// Heap size in bytes. Must be multiple of 1024. `None` = 32KB.
@@ -147,20 +144,20 @@ impl TransactionConfigMask {
     pub const HEAP_SIZE: u32 = 0b10000;
 
     /// Mask of all known/supported bits (bits 0-4).
-    pub const KNOWN_BITS: u32 = 0b11111;
+    pub const KNOWN_BITS: u32 = Self::PRIORITY_FEE
+        | Self::COMPUTE_UNIT_LIMIT
+        | Self::LOADED_ACCOUNTS_DATA_SIZE
+        | Self::HEAP_SIZE;
 
     pub const fn new(mask: u32) -> Self {
         Self(mask)
     }
 
-    /// Returns true if any unknown bits are set (bits 5-31).
+    /// Returns `true`` if any unknown bits are set.
     ///
-    /// Unknown bits indicate a config field the parser doesn't recognize.
-    /// Since config values are packed sequentially and the parser doesn't
-    /// know the byte size of unknown fields, it cannot skip them correctly.
-    /// Attempting to parse would read subsequent fields from wrong offsets.
+    /// An unknown bit is any bit that is not defined in `KNOWN_BITS`.
     pub const fn has_unknown_bits(&self) -> bool {
-        (self.0 & !Self::KNOWN_BITS) != 0
+        (self.0 | Self::KNOWN_BITS) != Self::KNOWN_BITS
     }
 
     pub const fn has_priority_fee(&self) -> bool {

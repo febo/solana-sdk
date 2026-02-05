@@ -9,7 +9,7 @@ use solana_hash::Hash;
 pub use {cached::*, config::*, error::*, message::*};
 
 /// Version byte for V1 messages (decimal 129).
-pub const V1_VERSION_BYTE: u8 = MESSAGE_VERSION_PREFIX | 1;
+pub const V1_PREFIX: u8 = MESSAGE_VERSION_PREFIX | 1;
 
 /// Maximum transaction size for V1 format in bytes.
 pub const MAX_TRANSACTION_SIZE: usize = 4096;

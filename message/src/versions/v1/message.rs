@@ -108,11 +108,9 @@ pub struct Message {
     ///
     ///   - `num_readonly_unsigned_accounts` addresses for which the transaction does not
     ///     contain signatures and are loaded as readonly.
-    #[cfg_attr(feature = "serde", serde(with = "solana_short_vec"))]
     pub account_keys: Vec<Address>,
 
     /// Program instructions to execute.
-    #[cfg_attr(feature = "serde", serde(with = "solana_short_vec"))]
     pub instructions: Vec<CompiledInstruction>,
 }
 

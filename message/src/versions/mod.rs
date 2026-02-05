@@ -3,7 +3,7 @@ use solana_frozen_abi_macro::{frozen_abi, AbiEnumVisitor, AbiExample};
 use {
     crate::{
         compiled_instruction::CompiledInstruction, legacy::Message as LegacyMessage,
-        v0::MessageAddressTableLookup, MessageHeader,
+        v0::MessageAddressTableLookup, v1::V1_PREFIX, MessageHeader,
     },
     solana_address::Address,
     solana_hash::Hash,
@@ -71,7 +71,6 @@ impl VersionedMessage {
         }
     }
 
-    #[inline(always)]
     pub fn header(&self) -> &MessageHeader {
         match self {
             Self::Legacy(message) => &message.header,
@@ -80,7 +79,6 @@ impl VersionedMessage {
         }
     }
 
-    #[inline(always)]
     pub fn static_account_keys(&self) -> &[Address] {
         match self {
             Self::Legacy(message) => &message.account_keys,
@@ -223,7 +221,7 @@ impl serde::Serialize for VersionedMessage {
             Self::V1(message) => {
                 // Note that this format does not match the wire format per SIMD-0385.
                 let mut seq = serializer.serialize_tuple(2)?;
-                seq.serialize_element(&(MESSAGE_VERSION_PREFIX | 1))?;
+                seq.serialize_element(&V1_PREFIX)?;
                 seq.serialize_element(message)?;
                 seq.end()
             }
@@ -399,7 +397,7 @@ impl SchemaWrite for VersionedMessage {
                 // SAFETY: buffer has sufficient capacity for serialization.
                 unsafe {
                     let ptr = buffer.as_mut_ptr();
-                    ptr.write(MESSAGE_VERSION_PREFIX | 1);
+                    ptr.write(V1_PREFIX);
                     serialize_into(message, ptr.add(1));
                     buffer.set_len(1 + total);
 
@@ -480,7 +478,7 @@ impl<'de> SchemaRead<'de> for VersionedMessage {
 mod tests {
     use {
         super::*,
-        crate::v0::MessageAddressTableLookup,
+        crate::{v0::MessageAddressTableLookup, v1::V1_PREFIX},
         proptest::{
             prelude::{any, prop, Just},
             prop_compose, proptest,
@@ -664,7 +662,7 @@ mod tests {
             // - first byte is the version prefix with the correct version.
             // - remaining bytes match the original serialized message.
             assert!(!serialized.is_empty());
-            assert_eq!(serialized[0], MESSAGE_VERSION_PREFIX | 1);
+            assert_eq!(serialized[0], V1_PREFIX);
             assert_eq!(&serialized[1..], bytes.as_slice());
         });
     }

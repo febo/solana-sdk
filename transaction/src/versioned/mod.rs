@@ -21,7 +21,7 @@ use {
         containers,
         io::{Reader, Writer},
         len::ShortU16Len,
-        ReadResult, SchemaRead, SchemaWrite, WriteResult,
+        ReadError, ReadResult, SchemaRead, SchemaWrite, WriteResult,
     },
 };
 #[cfg(feature = "serde")]
@@ -242,10 +242,20 @@ impl SchemaWrite for VersionedTransaction {
     #[allow(clippy::arithmetic_side_effects)]
     #[inline]
     fn size_of(src: &Self::Src) -> WriteResult<usize> {
-        Ok(
-            <containers::Vec<Signature, ShortU16Len> as SchemaWrite>::size_of(&src.signatures)?
-                + <VersionedMessage as SchemaWrite>::size_of(&src.message)?,
-        )
+        match src.message {
+            VersionedMessage::Legacy(_) | VersionedMessage::V0(_) => {
+                Ok(
+                    <containers::Vec<Signature, ShortU16Len> as SchemaWrite>::size_of(
+                        &src.signatures,
+                    )? + <VersionedMessage as SchemaWrite>::size_of(&src.message)?,
+                )
+            }
+            VersionedMessage::V1(_) => Ok(
+                // V1 transasction signatures are written as a fixed length array
+                // without a length prefix.
+                VersionedMessage::size_of(&src.message)? + src.signatures.len() * SIGNATURE_SIZE,
+            ),
+        }
     }
 
     #[inline]
@@ -285,6 +295,8 @@ impl<'de> SchemaRead<'de> for VersionedTransaction {
         //
         // - For `V1` messages, the first byte is the message version byte, which is always
         //   `> 128` and the top bit is always `1`.
+
+        use solana_message::v1::V1_PREFIX;
         let discriminator = reader.peek()?;
 
         if discriminator & MESSAGE_VERSION_PREFIX == 0 {
@@ -299,7 +311,7 @@ impl<'de> SchemaRead<'de> for VersionedTransaction {
             <VersionedMessage as SchemaRead<'de>>::read(reader, unsafe {
                 &mut *(addr_of_mut!((*dst_ptr).message)).cast::<MaybeUninit<_>>()
             })?;
-        } else {
+        } else if *discriminator == V1_PREFIX {
             // V1 transaction
 
             let message = VersionedMessage::get(reader)?;
@@ -327,6 +339,8 @@ impl<'de> SchemaRead<'de> for VersionedTransaction {
                 message,
                 signatures,
             });
+        } else {
+            return Err(ReadError::Custom("invalid transaction discriminator"));
         }
 
         Ok(())
@@ -516,7 +530,8 @@ mod tests {
         };
 
         // Bincode version of VersionedTransaction for cross-checking serialization
-        // with wincode.
+        // with wincode. This only applies to legacy/v0 transactions since v1
+        // transaction format is not compatible with bincode.
         #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
         #[derive(Debug, PartialEq, Default, Eq, Clone)]
         struct BincodeVersionedTransaction {
