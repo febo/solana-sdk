@@ -32,6 +32,9 @@
 //! └────────────────────────────────────────────────────────┘
 //! ```
 
+// Re-export for convenient access to the message builder in tests.
+#[cfg(test)]
+pub use self::tests::MessageBuilder;
 #[cfg(feature = "serde")]
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "frozen-abi")]
@@ -863,122 +866,126 @@ pub fn deserialize(input: &[u8]) -> Result<(Message, usize), MessageError> {
     ))
 }
 
-/// Builder for constructing V1 messages.
-#[derive(Debug, Clone, Default)]
-pub struct MessageBuilder {
-    header: MessageHeader,
-    config: TransactionConfig,
-    lifetime_specifier: Option<Hash>,
-    account_keys: Vec<Address>,
-    instructions: Vec<CompiledInstruction>,
-}
-
-impl MessageBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    #[must_use]
-    pub fn required_signatures(mut self, count: u8) -> Self {
-        self.header.num_required_signatures = count;
-        self
-    }
-
-    #[must_use]
-    pub fn readonly_signed_accounts(mut self, count: u8) -> Self {
-        self.header.num_readonly_signed_accounts = count;
-        self
-    }
-
-    #[must_use]
-    pub fn readonly_unsigned_accounts(mut self, count: u8) -> Self {
-        self.header.num_readonly_unsigned_accounts = count;
-        self
-    }
-
-    #[must_use]
-    pub fn lifetime_specifier(mut self, hash: Hash) -> Self {
-        self.lifetime_specifier = Some(hash);
-        self
-    }
-
-    #[must_use]
-    pub fn config(mut self, config: TransactionConfig) -> Self {
-        self.config = config;
-        self
-    }
-
-    #[must_use]
-    pub fn priority_fee(mut self, fee: u64) -> Self {
-        self.config.priority_fee = Some(fee);
-        self
-    }
-
-    #[must_use]
-    pub fn compute_unit_limit(mut self, limit: u32) -> Self {
-        self.config.compute_unit_limit = Some(limit);
-        self
-    }
-
-    #[must_use]
-    pub fn loaded_accounts_data_size_limit(mut self, limit: u32) -> Self {
-        self.config.loaded_accounts_data_size_limit = Some(limit);
-        self
-    }
-
-    #[must_use]
-    pub fn heap_size(mut self, size: u32) -> Self {
-        self.config.heap_size = Some(size);
-        self
-    }
-
-    #[must_use]
-    pub fn account(mut self, key: Address) -> Self {
-        self.account_keys.push(key);
-        self
-    }
-
-    #[must_use]
-    pub fn accounts(mut self, keys: Vec<Address>) -> Self {
-        self.account_keys = keys;
-        self
-    }
-
-    #[must_use]
-    pub fn instruction(mut self, instruction: CompiledInstruction) -> Self {
-        self.instructions.push(instruction);
-        self
-    }
-
-    #[must_use]
-    pub fn instructions(mut self, instructions: Vec<CompiledInstruction>) -> Self {
-        self.instructions = instructions;
-        self
-    }
-
-    /// Build the message, validating all constraints.
-    pub fn build(self) -> Result<Message, MessageError> {
-        let lifetime_specifier = self
-            .lifetime_specifier
-            .ok_or(MessageError::MissingLifetimeSpecifier)?;
-
-        let message = Message::new(
-            self.header,
-            self.config,
-            lifetime_specifier,
-            self.account_keys,
-            self.instructions,
-        );
-
-        message.validate()?;
-
-        Ok(message)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Builder for constructing V1 messages.
+    ///
+    /// This is used in tests to simplify message construction and validation. For
+    /// client code, users should construct messages using `try_compile` or
+    /// `try_compile_with_config`.
+    #[derive(Debug, Clone, Default)]
+    pub struct MessageBuilder {
+        header: MessageHeader,
+        config: TransactionConfig,
+        lifetime_specifier: Option<Hash>,
+        account_keys: Vec<Address>,
+        instructions: Vec<CompiledInstruction>,
+    }
+
+    impl MessageBuilder {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        #[must_use]
+        pub fn required_signatures(mut self, count: u8) -> Self {
+            self.header.num_required_signatures = count;
+            self
+        }
+
+        #[must_use]
+        pub fn readonly_signed_accounts(mut self, count: u8) -> Self {
+            self.header.num_readonly_signed_accounts = count;
+            self
+        }
+
+        #[must_use]
+        pub fn readonly_unsigned_accounts(mut self, count: u8) -> Self {
+            self.header.num_readonly_unsigned_accounts = count;
+            self
+        }
+
+        #[must_use]
+        pub fn lifetime_specifier(mut self, hash: Hash) -> Self {
+            self.lifetime_specifier = Some(hash);
+            self
+        }
+
+        #[must_use]
+        pub fn config(mut self, config: TransactionConfig) -> Self {
+            self.config = config;
+            self
+        }
+
+        #[must_use]
+        pub fn priority_fee(mut self, fee: u64) -> Self {
+            self.config.priority_fee = Some(fee);
+            self
+        }
+
+        #[must_use]
+        pub fn compute_unit_limit(mut self, limit: u32) -> Self {
+            self.config.compute_unit_limit = Some(limit);
+            self
+        }
+
+        #[must_use]
+        pub fn loaded_accounts_data_size_limit(mut self, limit: u32) -> Self {
+            self.config.loaded_accounts_data_size_limit = Some(limit);
+            self
+        }
+
+        #[must_use]
+        pub fn heap_size(mut self, size: u32) -> Self {
+            self.config.heap_size = Some(size);
+            self
+        }
+
+        #[must_use]
+        pub fn account(mut self, key: Address) -> Self {
+            self.account_keys.push(key);
+            self
+        }
+
+        #[must_use]
+        pub fn accounts(mut self, keys: Vec<Address>) -> Self {
+            self.account_keys = keys;
+            self
+        }
+
+        #[must_use]
+        pub fn instruction(mut self, instruction: CompiledInstruction) -> Self {
+            self.instructions.push(instruction);
+            self
+        }
+
+        #[must_use]
+        pub fn instructions(mut self, instructions: Vec<CompiledInstruction>) -> Self {
+            self.instructions = instructions;
+            self
+        }
+
+        /// Build the message, validating all constraints.
+        pub fn build(self) -> Result<Message, MessageError> {
+            let lifetime_specifier = self
+                .lifetime_specifier
+                .ok_or(MessageError::MissingLifetimeSpecifier)?;
+
+            let message = Message::new(
+                self.header,
+                self.config,
+                lifetime_specifier,
+                self.account_keys,
+                self.instructions,
+            );
+
+            message.validate()?;
+
+            Ok(message)
+        }
+    }
 
     fn create_test_message() -> Message {
         MessageBuilder::new()
