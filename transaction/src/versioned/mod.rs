@@ -345,10 +345,10 @@ mod tests {
             compiled_instruction::CompiledInstruction,
             v0::Message as MessageV0,
             v1::{
-                MessageBuilder, FIXED_HEADER_SIZE, INSTRUCTION_HEADER_SIZE, MAX_TRANSACTION_SIZE,
-                SIGNATURE_SIZE,
+                Message, TransactionConfig, FIXED_HEADER_SIZE, INSTRUCTION_HEADER_SIZE,
+                MAX_TRANSACTION_SIZE, SIGNATURE_SIZE,
             },
-            Message as LegacyMessage,
+            Message as LegacyMessage, MessageHeader,
         },
         solana_pubkey::Pubkey,
         solana_signer::Signer,
@@ -680,17 +680,21 @@ mod tests {
         let max_data_size = MAX_TRANSACTION_SIZE - overhead;
         let data = vec![0u8; max_data_size];
 
-        let message = MessageBuilder::new()
-            .required_signatures(NUM_SIGNATURES as u8)
-            .lifetime_specifier(Hash::new_unique())
-            .accounts(vec![Address::new_unique(), Address::new_unique()])
-            .instruction(CompiledInstruction {
+        let message = Message {
+            header: MessageHeader {
+                num_required_signatures: NUM_SIGNATURES as u8,
+                num_readonly_signed_accounts: 0,
+                num_readonly_unsigned_accounts: 0,
+            },
+            config: TransactionConfig::default(),
+            account_keys: vec![Address::new_unique(), Address::new_unique()],
+            lifetime_specifier: Hash::new_unique(),
+            instructions: vec![CompiledInstruction {
                 program_id_index: 1,
                 accounts: vec![0],
                 data,
-            })
-            .build()
-            .unwrap();
+            }],
+        };
 
         let v1_tx = VersionedTransaction {
             message: VersionedMessage::V1(message),
