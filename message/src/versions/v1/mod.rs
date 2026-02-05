@@ -8,6 +8,14 @@ mod message;
 use solana_hash::Hash;
 pub use {cached::*, config::*, error::*, message::*};
 
+/// A type definition for an  instruction header:
+///  - program_id_index
+///  - num_accounts
+///  - data_len
+///
+/// This is used to parse the instruction portion of a V1 message.
+pub type InstructionHeader = (u8, u8, [u8; 2]);
+
 /// Version byte for V1 messages (decimal 129).
 pub const V1_PREFIX: u8 = MESSAGE_VERSION_PREFIX | 1;
 
@@ -32,9 +40,6 @@ pub const FIXED_HEADER_SIZE: usize = size_of::<MessageHeader>() // legacy header
     + size_of::<Hash>() // lifetime specifier
     + size_of::<u8>() // number of instructions
     + size_of::<u8>(); // number of addresses
-
-/// Size of an instruction header: program_id (u8) + num_accounts (u8) + data_len (u16).
-pub const INSTRUCTION_HEADER_SIZE: usize = size_of::<u8>() + size_of::<u8>() + size_of::<u16>();
 
 /// Size of a single Ed25519 signature (64 bytes).
 pub const SIGNATURE_SIZE: usize = 64;

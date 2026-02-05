@@ -359,7 +359,7 @@ mod tests {
             compiled_instruction::CompiledInstruction,
             v0::Message as MessageV0,
             v1::{
-                Message, TransactionConfig, FIXED_HEADER_SIZE, INSTRUCTION_HEADER_SIZE,
+                InstructionHeader, Message, TransactionConfig, FIXED_HEADER_SIZE,
                 MAX_TRANSACTION_SIZE, SIGNATURE_SIZE,
             },
             Message as LegacyMessage, MessageHeader,
@@ -688,7 +688,7 @@ mod tests {
             + (NUM_SIGNATURES * SIGNATURE_SIZE)
             + FIXED_HEADER_SIZE
             + (NUM_ADDRESSES * ADDRESS_BYTES)
-            + INSTRUCTION_HEADER_SIZE
+            + size_of::<InstructionHeader>()
             + NUM_INSTRUCTION_ACCOUNTS;
 
         // minus 1 for version byte

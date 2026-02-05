@@ -53,8 +53,8 @@ use {
         compiled_instruction::CompiledInstruction,
         compiled_keys::CompiledKeys,
         v1::{
-            MessageError, TransactionConfig, TransactionConfigMask, FIXED_HEADER_SIZE,
-            MAX_ADDRESSES, MAX_INSTRUCTIONS, MAX_SIGNATURES,
+            InstructionHeader, MessageError, TransactionConfig, TransactionConfigMask,
+            FIXED_HEADER_SIZE, MAX_ADDRESSES, MAX_INSTRUCTIONS, MAX_SIGNATURES,
         },
         AccountKeys, CompileError, MessageHeader,
     },
@@ -349,11 +349,11 @@ impl Message {
         }
     }
 
-    /// Returns true if the account at the specified index was requested as writable.
+    /// Returns `true` if the account at the specified index was requested to be
+    /// writable.
     ///
-    /// Account keys are ordered: `[writable signers][readonly signers][writable non-signers][readonly non-signers]`.
-    /// This checks which region the index falls into based on the header counts.
-    pub fn is_writable_index(&self, key_index: usize) -> bool {
+    /// This method should not be used directly.
+    pub(crate) fn is_writable_index(&self, key_index: usize) -> bool {
         let num_account_keys = self.account_keys.len();
         let num_signed_accounts = usize::from(self.header.num_required_signatures);
 
@@ -383,9 +383,20 @@ impl Message {
             .any(|&key| key == bpf_loader_upgradeable::id())
     }
 
-    /// Returns true if the account at the specified index was requested as writable.
+    /// Returns `true` if the account at the specified index was requested as
+    /// writable.
     ///
-    /// The `reserved_account_keys` parameter allows demoting reserved accounts to readonly.
+    ///
+    /// # Important
+    ///
+    /// Before loading addresses, we can't demote write locks properly so this should
+    /// not be used by the runtime. The `reserved_account_keys` parameter is optional
+    /// to allow clients to approximate writability without requiring fetching the latest
+    /// set of reserved account keys.
+    ///
+    /// Program accounts are demoted from writable to readonly, unless the upgradeable
+    /// loader is present in which case they are left as writable since upgradeable
+    /// programs need to be writable for upgrades.
     pub fn is_maybe_writable(
         &self,
         key_index: usize,
@@ -801,9 +812,6 @@ pub fn deserialize(input: &[u8]) -> Result<(Message, usize), MessageError> {
     }
 
     // instruction headers
-
-    // Define instruction header type (program_id_index, num_accounts, data_len).
-    type InstructionHeader = (u8, u8, [u8; 2]);
 
     offset += num_instructions * size_of::<InstructionHeader>();
 
