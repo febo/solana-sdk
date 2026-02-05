@@ -481,6 +481,10 @@ mod tests {
     use {
         super::*,
         crate::v0::MessageAddressTableLookup,
+        proptest::{
+            prelude::{any, prop, Just},
+            prop_compose, proptest,
+        },
         solana_instruction::{AccountMeta, Instruction},
     };
 
@@ -572,33 +576,97 @@ mod tests {
 
     #[test]
     fn test_v1_message_raw_bytes_roundtrip() {
-        let message = v1::MessageBuilder::new()
-            .required_signatures(1)
-            .lifetime_specifier(Hash::new_unique())
-            .accounts(vec![Address::new_unique(), Address::new_unique()])
-            .priority_fee(1000)
-            .compute_unit_limit(200_000)
-            .instruction(CompiledInstruction {
-                program_id_index: 1,
-                accounts: vec![0],
-                data: vec![1, 2, 3, 4],
-            })
-            .build()
-            .unwrap();
+        #[derive(Clone, Debug)]
+        struct TestMessageData {
+            required_signatures: u8,
+            lifetime: [u8; 32],
+            accounts: Vec<[u8; 32]>,
+            priority_fee: u64,
+            compute_unit_limit: u32,
+            program_id_index: u8,
+            instr_accounts: Vec<u8>,
+            data: Vec<u8>,
+        }
 
-        // Serialize V1 to raw bytes
-        let bytes = v1::serialize(&message);
+        prop_compose! {
+            fn generate_message_data()
+                (
+                    // Generate between 12 and 64 accounts since we need at least the
+                    // amount of `required_signatures`.
+                    accounts in prop::collection::vec(any::<[u8; 32]>(), 12..=64),
+                    lifetime in any::<[u8; 32]>(),
+                    priority_fee in 0u64..=1_000_000u64,
+                    compute_unit_limit in 0u32..=1_400_000u32,
+                    required_signatures in 1..=12u8,
+                )
+                (
+                    // The `program_id_index` cannot be 0 (payer).
+                    program_id_index in 1u8..accounts.len() as u8,
+                    // we need to have at least `required_signatures` accounts.
+                    instr_accounts in prop::collection::vec(
+                        0u8..accounts.len() as u8,
+                        (required_signatures as usize)..=accounts.len(),
+                    ),
+                    data in prop::collection::vec(any::<u8>(), 0..=2048),
+                    accounts in Just(accounts),
+                    lifetime in Just(lifetime),
+                    priority_fee in Just(priority_fee),
+                    compute_unit_limit in Just(compute_unit_limit),
+                    required_signatures in Just(required_signatures),
+                ) -> TestMessageData
+            {
+                TestMessageData {
+                    required_signatures,
+                    lifetime,
+                    accounts,
+                    priority_fee,
+                    compute_unit_limit,
+                    program_id_index,
+                    instr_accounts,
+                    data,
+                }
+            }
+        }
 
-        // Deserialize from raw bytes
-        let (parsed, _) = v1::deserialize(&bytes).unwrap();
-        assert_eq!(message, parsed);
+        proptest!(|(test_data in generate_message_data())| {
+            let accounts: Vec<Address> = test_data.accounts.into_iter()
+                .map(Address::new_from_array).collect();
+            let lifetime = Hash::new_from_array(test_data.lifetime);
 
-        // Wrap in VersionedMessage and test `serialize()`
-        let versioned = VersionedMessage::V1(message.clone());
-        let serialized = versioned.serialize();
-        // First byte is version prefix.
-        assert_eq!(serialized[0], MESSAGE_VERSION_PREFIX | 1);
-        assert_eq!(serialized[1..], bytes);
+            let message = v1::MessageBuilder::new()
+                .required_signatures(test_data.required_signatures)
+                .lifetime_specifier(lifetime)
+                .accounts(accounts)
+                .priority_fee(test_data.priority_fee)
+                .compute_unit_limit(test_data.compute_unit_limit)
+                .instruction(CompiledInstruction {
+                    program_id_index: test_data.program_id_index,
+                    accounts: test_data.instr_accounts,
+                    data: test_data.data,
+                })
+                .build()
+                .unwrap();
+
+            // Serialize V1 to raw bytes.
+            let bytes = v1::serialize(&message);
+            // Deserialize from raw bytes.
+            let (parsed, _) = v1::deserialize(&bytes).unwrap();
+
+            // Messages should match.
+            assert_eq!(message, parsed);
+
+            // Wrap in VersionedMessage and test `serialize()`.
+            let versioned = VersionedMessage::V1(message.clone());
+            let serialized = versioned.serialize();
+
+            // Assert that everything worked:
+            // - serialized message is not empty.
+            // - first byte is the version prefix with the correct version.
+            // - remaining bytes match the original serialized message.
+            assert!(!serialized.is_empty());
+            assert_eq!(serialized[0], MESSAGE_VERSION_PREFIX | 1);
+            assert_eq!(&serialized[1..], bytes.as_slice());
+        });
     }
 
     #[test]
