@@ -14,8 +14,15 @@ use {
         mem::MaybeUninit,
         ptr::{addr_of_mut, copy_nonoverlapping},
     },
+    solana_message::v1::SIGNATURE_SIZE,
+    solana_message::MESSAGE_VERSION_PREFIX,
     solana_signer::{signers::Signers, SignerError},
-    wincode::{containers, len::ShortU16Len, SchemaRead, SchemaWrite},
+    wincode::{
+        containers,
+        io::{Reader, Writer},
+        len::ShortU16Len,
+        ReadResult, SchemaRead, SchemaWrite, WriteResult,
+    },
 };
 #[cfg(feature = "serde")]
 use {
@@ -54,9 +61,11 @@ impl TransactionVersion {
 // NOTE: Serialization-related changes must be paired with the direct read at sigverify.
 /// An atomic transaction
 #[cfg_attr(feature = "frozen-abi", derive(solana_frozen_abi_macro::AbiExample))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Default, Eq, Clone)]
 pub struct VersionedTransaction {
     /// List of signatures
+    #[cfg_attr(feature = "serde", serde(with = "short_vec"))]
     pub signatures: Vec<Signature>,
     /// Message to sign.
     pub message: VersionedMessage,
@@ -337,11 +346,11 @@ mod tests {
             v0::Message as MessageV0,
             v1::{
                 MessageBuilder, FIXED_HEADER_SIZE, INSTRUCTION_HEADER_SIZE, MAX_TRANSACTION_SIZE,
+                SIGNATURE_SIZE,
             },
             Message as LegacyMessage,
         },
         solana_pubkey::Pubkey,
-        solana_short_vec as short_vec,
         solana_signer::Signer,
         solana_system_interface::instruction as system_instruction,
     };

@@ -237,22 +237,11 @@ impl serde::Serialize for VersionedMessage {
                 seq.end()
             }
             Self::V1(message) => {
-                if serializer.is_human_readable() {
-                    // JSON: encode as (0x81, { ...message fields... })
-                    // Note that this format does not match the wire format per SIMD-0385.
-                    let mut seq = serializer.serialize_tuple(2)?;
-                    seq.serialize_element(&(MESSAGE_VERSION_PREFIX | 1))?;
-                    seq.serialize_element(message)?;
-                    seq.end()
-                } else {
-                    // Messages in V1 format cannot be binary serialized via bincode
-                    // because the wire format (per SIMD-0385) is incompatible with bincode's
-                    // data model. Use `VersionedMessage::serialize()` to get the correct
-                    // wire bytes.
-                    Err(serde::ser::Error::custom(
-                        "V1 messages cannot be serialized via bincode. Use VersionedMessage::serialize() for wire bytes.",
-                    ))
-                }
+                // Note that this format does not match the wire format per SIMD-0385.
+                let mut seq = serializer.serialize_tuple(2)?;
+                seq.serialize_element(&(MESSAGE_VERSION_PREFIX | 1))?;
+                seq.serialize_element(message)?;
+                seq.end()
             }
         }
     }
@@ -307,9 +296,7 @@ impl<'de> serde::Deserialize<'de> for VersionedMessage {
     where
         D: Deserializer<'de>,
     {
-        struct MessageVisitor {
-            human_readable: bool,
-        }
+        struct MessageVisitor;
 
         impl<'de> Visitor<'de> for MessageVisitor {
             type Value = VersionedMessage;
@@ -369,18 +356,12 @@ impl<'de> serde::Deserialize<'de> for VersionedMessage {
                                 )?))
                             }
                             1 => {
-                                if self.human_readable {
-                                    Ok(VersionedMessage::V1(
-                                        seq.next_element()?
-                                            .ok_or_else(|| de::Error::invalid_length(1, &self))?,
-                                    ))
-                                } else {
-                                    // V1 messages cannot be deserialized via bincode because the wire format (per SIMD-0385)
-                                    // is incompatible. Use `v1::Message::deserialize()` to parse wire-format bytes.
-                                    Err(de::Error::custom(
-                                        "V1 messages cannot be serialized via bincode. Use `v1::Message::deserialize()` to parse wire-format bytes.",
-                                    ))
-                                }
+                                Ok(VersionedMessage::V1(seq.next_element()?.ok_or_else(
+                                    || {
+                                        // will never happen since tuple length is always 2
+                                        de::Error::invalid_length(1, &self)
+                                    },
+                                )?))
                             }
                             127 => {
                                 // 0xff is used as the first byte of the off-chain messages
@@ -399,8 +380,7 @@ impl<'de> serde::Deserialize<'de> for VersionedMessage {
             }
         }
 
-        let human_readable = deserializer.is_human_readable();
-        deserializer.deserialize_tuple(2, MessageVisitor { human_readable })
+        deserializer.deserialize_tuple(2, MessageVisitor)
     }
 }
 
@@ -657,31 +637,6 @@ mod tests {
         let s = serde_json::to_string(&vm).unwrap();
         let back: VersionedMessage = serde_json::from_str(&s).unwrap();
         assert_eq!(vm, back);
-    }
-
-    #[test]
-    fn test_v1_versioned_message_bincode_blocked() {
-        let msg = v1::MessageBuilder::new()
-            .required_signatures(1)
-            .lifetime_specifier(Hash::new_unique())
-            .accounts(vec![Address::new_unique(), Address::new_unique()])
-            .instruction(CompiledInstruction {
-                program_id_index: 1,
-                accounts: vec![0],
-                data: vec![],
-            })
-            .build()
-            .unwrap();
-
-        let vm = VersionedMessage::V1(msg);
-
-        // bincode serialization should fail
-        let result = bincode::serialize(&vm);
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("cannot be serialized via bincode"));
     }
 
     #[cfg(feature = "wincode")]
