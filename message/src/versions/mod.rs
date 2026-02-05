@@ -3,7 +3,7 @@ use solana_frozen_abi_macro::{frozen_abi, AbiEnumVisitor, AbiExample};
 use {
     crate::{
         compiled_instruction::CompiledInstruction, legacy::Message as LegacyMessage,
-        v0::MessageAddressTableLookup, v1::V1_PREFIX, MessageHeader,
+        v0::MessageAddressTableLookup, MessageHeader,
     },
     solana_address::Address,
     solana_hash::Hash,
@@ -220,8 +220,9 @@ impl serde::Serialize for VersionedMessage {
             }
             Self::V1(message) => {
                 // Note that this format does not match the wire format per SIMD-0385.
+
                 let mut seq = serializer.serialize_tuple(2)?;
-                seq.serialize_element(&V1_PREFIX)?;
+                seq.serialize_element(&crate::v1::V1_PREFIX)?;
                 seq.serialize_element(message)?;
                 seq.end()
             }
@@ -397,7 +398,7 @@ impl SchemaWrite for VersionedMessage {
                 // SAFETY: buffer has sufficient capacity for serialization.
                 unsafe {
                     let ptr = buffer.as_mut_ptr();
-                    ptr.write(V1_PREFIX);
+                    ptr.write(crate::v1::V1_PREFIX);
                     serialize_into(message, ptr.add(1));
                     buffer.set_len(1 + total);
 
