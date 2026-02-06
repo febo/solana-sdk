@@ -183,7 +183,6 @@ impl Message {
     /// fn create_v1_tx(
     ///     client: &RpcClient,
     ///     instruction: Instruction,
-    ///     address_lookup_table_key: Address,
     ///     payer: &Keypair,
     /// ) -> Result<VersionedTransaction> {
     ///     let blockhash = client.get_latest_blockhash()?;
@@ -204,6 +203,7 @@ impl Message {
     /// # let instruction = Instruction::new_with_bincode(Address::new_unique(), &(), vec![
     /// #   AccountMeta::new(Address::new_unique(), false),
     /// # ]);
+    /// # create_v1_tx(&client, instruction, &payer)?;
     /// # Ok::<(), anyhow::Error>(())
     /// ```
     pub fn try_compile(
@@ -215,7 +215,7 @@ impl Message {
             payer,
             instructions,
             recent_blockhash,
-            &TransactionConfig::default(),
+            TransactionConfig::empty(),
         )
     }
 
@@ -270,7 +270,6 @@ impl Message {
     /// fn create_v1_tx(
     ///     client: &RpcClient,
     ///     instruction: Instruction,
-    ///     address_lookup_table_key: Address,
     ///     payer: &Keypair,
     /// ) -> Result<VersionedTransaction> {
     ///     let blockhash = client.get_latest_blockhash()?;
@@ -279,7 +278,7 @@ impl Message {
     ///             &payer.pubkey(),
     ///             &[instruction],
     ///             blockhash,
-    ///             &TransactionConfig::new().with_compute_unit_limit(100),
+    ///             TransactionConfig::empty().with_compute_unit_limit(100),
     ///         )?),
     ///         &[payer],
     ///     )?;
@@ -292,13 +291,14 @@ impl Message {
     /// # let instruction = Instruction::new_with_bincode(Address::new_unique(), &(), vec![
     /// #   AccountMeta::new(Address::new_unique(), false),
     /// # ]);
+    /// # create_v1_tx(&client, instruction, &payer)?;
     /// # Ok::<(), anyhow::Error>(())
     /// ```
     pub fn try_compile_with_config(
         payer: &Address,
         instructions: &[Instruction],
         recent_blockhash: Hash,
-        config: &TransactionConfig,
+        config: TransactionConfig,
     ) -> Result<Self, CompileError> {
         let compiled_keys = CompiledKeys::compile(instructions, Some(*payer));
         let (header, static_keys) = compiled_keys.try_into_message_components()?;
@@ -308,7 +308,7 @@ impl Message {
 
         Ok(Self {
             header,
-            config: *config,
+            config,
             lifetime_specifier: recent_blockhash,
             account_keys: static_keys,
             instructions,
@@ -417,7 +417,7 @@ impl Message {
 
         // Demote program IDs, unless the upgradeable loader is present
         // (upgradeable programs need to be writable for upgrades)
-        if self.is_key_called_as_program(key_index) && !self.is_upgradeable_loader_present() {
+        if self.demote_program_id(key_index) {
             return false;
         }
 
@@ -777,7 +777,7 @@ pub fn deserialize(input: &[u8]) -> Result<(Message, usize), MessageError> {
         return Err(MessageError::BufferTooSmall);
     }
 
-    let mut config = TransactionConfig::new();
+    let mut config = TransactionConfig::empty();
 
     if config_mask.has_priority_fee() {
         // SAFETY: input length has been checked against the required size

@@ -26,7 +26,7 @@ pub struct TransactionConfig {
 }
 
 impl TransactionConfig {
-    pub const fn new() -> Self {
+    pub const fn empty() -> Self {
         Self {
             priority_fee: None,
             compute_unit_limit: None,
@@ -258,7 +258,7 @@ mod tests {
 
     #[test]
     fn from_config_sets_correct_bits() {
-        let config = TransactionConfig::new()
+        let config = TransactionConfig::empty()
             .with_priority_fee(1000)
             .with_compute_unit_limit(200_000);
 
@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn builder_sets_all_fields() {
-        let config = TransactionConfig::new()
+        let config = TransactionConfig::empty()
             .with_priority_fee(1000)
             .with_compute_unit_limit(200_000)
             .with_loaded_accounts_data_size_limit(64 * 1024)

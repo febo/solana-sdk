@@ -367,6 +367,7 @@ mod tests {
         solana_pubkey::Pubkey,
         solana_signer::Signer,
         solana_system_interface::instruction as system_instruction,
+        test_case::test_case,
     };
 
     #[test]
@@ -445,11 +446,8 @@ mod tests {
     #[test]
     fn tx_uses_nonce_bad_prog_id_idx_fail() {
         let (_, _, mut tx) = nonced_transfer_tx();
-        match &mut tx {
-            VersionedTransaction {
-                message: VersionedMessage::Legacy(message),
-                ..
-            } => {
+        match &mut tx.message {
+            VersionedMessage::Legacy(message) => {
                 message.instructions.get_mut(0).unwrap().program_id_index = 255u8;
             }
             _ => unreachable!(),
@@ -671,8 +669,10 @@ mod tests {
         });
     }
 
-    #[test]
-    fn v1_transaction_at_max_size() {
+    #[test_case(0 ; "at max size")]
+    #[test_case(1 ; "over by one")]
+    #[allow(clippy::arithmetic_side_effects)]
+    fn v1_transaction_serialization(delta: usize) {
         // Calculate exact max data size for a transaction at the limit:
         // - 1 signature
         // - Fixed header (version + MessageHeader + config mask + lifetime + num_ix + num_addr)
@@ -691,8 +691,9 @@ mod tests {
             + size_of::<InstructionHeader>()
             + NUM_INSTRUCTION_ACCOUNTS;
 
-        // minus 1 for version byte
-        let max_data_size = MAX_TRANSACTION_SIZE - overhead;
+        // adds `delta` bytes to the instruction data to test both at max size
+        // and over by one byte scenarios.
+        let max_data_size = MAX_TRANSACTION_SIZE - overhead + delta;
         let data = vec![0u8; max_data_size];
 
         let message = Message {
@@ -718,11 +719,18 @@ mod tests {
 
         let serialized = wincode::serialize(&v1_tx).unwrap();
 
-        assert_eq!(
-            serialized.len(),
-            MAX_TRANSACTION_SIZE,
-            "Transaction should be exactly at max size"
-        );
+        match delta {
+            0 => assert_eq!(
+                serialized.len(),
+                MAX_TRANSACTION_SIZE,
+                "Transaction should be exactly at max size"
+            ),
+            d => assert_eq!(
+                serialized.len(),
+                MAX_TRANSACTION_SIZE + d,
+                "Transaction should be over by {d} byte(s)"
+            ),
+        }
 
         let deserialized = wincode::deserialize(&serialized).unwrap();
 

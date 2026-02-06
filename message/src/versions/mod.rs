@@ -481,11 +481,28 @@ mod tests {
         super::*,
         crate::{v0::MessageAddressTableLookup, v1::V1_PREFIX},
         proptest::{
-            prelude::{any, prop, Just},
+            collection::vec,
+            option::of,
+            prelude::{any, Just},
             prop_compose, proptest,
+            strategy::Strategy,
         },
         solana_instruction::{AccountMeta, Instruction},
     };
+
+    #[derive(Clone, Debug)]
+    struct TestMessageData {
+        required_signatures: u8,
+        lifetime: [u8; 32],
+        accounts: Vec<[u8; 32]>,
+        priority_fee: Option<u64>,
+        compute_unit_limit: Option<u32>,
+        loaded_accounts_data_size_limit: Option<u32>,
+        heap_size: Option<u32>,
+        program_id_index: u8,
+        instr_accounts: Vec<u8>,
+        data: Vec<u8>,
+    }
 
     #[test]
     fn test_legacy_message_serialization() {
@@ -573,78 +590,86 @@ mod tests {
         assert_eq!(message, message_from_string);
     }
 
-    #[test]
-    fn test_v1_message_raw_bytes_roundtrip() {
-        #[derive(Clone, Debug)]
-        struct TestMessageData {
-            required_signatures: u8,
-            lifetime: [u8; 32],
-            accounts: Vec<[u8; 32]>,
-            priority_fee: u64,
-            compute_unit_limit: u32,
-            program_id_index: u8,
-            instr_accounts: Vec<u8>,
-            data: Vec<u8>,
-        }
-
-        prop_compose! {
-            fn generate_message_data()
-                (
-                    // Generate between 12 and 64 accounts since we need at least the
-                    // amount of `required_signatures`.
-                    accounts in prop::collection::vec(any::<[u8; 32]>(), 12..=64),
-                    lifetime in any::<[u8; 32]>(),
-                    priority_fee in 0u64..=1_000_000u64,
-                    compute_unit_limit in 0u32..=1_400_000u32,
-                    required_signatures in 1..=12u8,
-                )
-                (
-                    // The `program_id_index` cannot be 0 (payer).
-                    program_id_index in 1u8..accounts.len() as u8,
-                    // we need to have at least `required_signatures` accounts.
-                    instr_accounts in prop::collection::vec(
-                        0u8..accounts.len() as u8,
-                        (required_signatures as usize)..=accounts.len(),
-                    ),
-                    data in prop::collection::vec(any::<u8>(), 0..=2048),
-                    accounts in Just(accounts),
-                    lifetime in Just(lifetime),
-                    priority_fee in Just(priority_fee),
-                    compute_unit_limit in Just(compute_unit_limit),
-                    required_signatures in Just(required_signatures),
-                ) -> TestMessageData
-            {
-                TestMessageData {
-                    required_signatures,
-                    lifetime,
-                    accounts,
-                    priority_fee,
-                    compute_unit_limit,
-                    program_id_index,
-                    instr_accounts,
-                    data,
-                }
+    prop_compose! {
+        fn generate_message_data()
+            (
+                // Generate between 12 and 64 accounts since we need at least the
+                // amount of `required_signatures`.
+                accounts in vec(any::<[u8; 32]>(), 12..=64),
+                lifetime in any::<[u8; 32]>(),
+                priority_fee in of(any::<u64>()),
+                compute_unit_limit in of(0..=1_400_000u32),
+                loaded_accounts_data_size_limit in of(0..=20_480u32),
+                heap_size in of((0..=32u32).prop_map(|n| n.saturating_mul(1024))),
+                required_signatures in 1..=12u8,
+            )
+            (
+                // The `program_id_index` cannot be 0 (payer).
+                program_id_index in 1u8..accounts.len() as u8,
+                // we need to have at least `required_signatures` accounts.
+                instr_accounts in vec(
+                    0u8..accounts.len() as u8,
+                    (required_signatures as usize)..=accounts.len(),
+                ),
+                // Keep instruction data relatively small to avoid hitting the maximum
+                // transaction size when combined with the accounts.
+                data in vec(any::<u8>(), 0..=2048),
+                accounts in Just(accounts),
+                lifetime in Just(lifetime),
+                priority_fee in Just(priority_fee),
+                compute_unit_limit in Just(compute_unit_limit),
+                loaded_accounts_data_size_limit in Just(loaded_accounts_data_size_limit),
+                heap_size in Just(heap_size),
+                required_signatures in Just(required_signatures),
+            ) -> TestMessageData
+        {
+            TestMessageData {
+                required_signatures,
+                lifetime,
+                accounts,
+                priority_fee,
+                compute_unit_limit,
+                loaded_accounts_data_size_limit,
+                heap_size,
+                program_id_index,
+                instr_accounts,
+                data,
             }
         }
+    }
 
-        proptest!(|(test_data in generate_message_data())| {
+    proptest! {
+        #[test]
+        fn test_v1_message_raw_bytes_roundtrip(test_data in generate_message_data()) {
             let accounts: Vec<Address> = test_data.accounts.into_iter()
                 .map(Address::new_from_array).collect();
             let lifetime = Hash::new_from_array(test_data.lifetime);
 
-            let message = v1::MessageBuilder::new()
+            let mut builder = v1::MessageBuilder::new()
                 .required_signatures(test_data.required_signatures)
                 .lifetime_specifier(lifetime)
                 .accounts(accounts)
-                .priority_fee(test_data.priority_fee)
-                .compute_unit_limit(test_data.compute_unit_limit)
                 .instruction(CompiledInstruction {
                     program_id_index: test_data.program_id_index,
                     accounts: test_data.instr_accounts,
                     data: test_data.data,
-                })
-                .build()
-                .unwrap();
+                });
+
+            // config values.
+            if let Some(priority_fee) = test_data.priority_fee {
+                builder = builder.priority_fee(priority_fee);
+            }
+            if let Some(compute_unit_limit) = test_data.compute_unit_limit {
+                builder = builder.compute_unit_limit(compute_unit_limit);
+            }
+            if let Some(loaded_accounts_data_size_limit) = test_data.loaded_accounts_data_size_limit {
+                builder = builder.loaded_accounts_data_size_limit(loaded_accounts_data_size_limit);
+            }
+            if let Some(heap_size) = test_data.heap_size {
+                builder = builder.heap_size(heap_size);
+            }
+
+            let message = builder.build().unwrap();
 
             // Serialize V1 to raw bytes.
             let bytes = v1::serialize(&message);
@@ -655,7 +680,7 @@ mod tests {
             assert_eq!(message, parsed);
 
             // Wrap in VersionedMessage and test `serialize()`.
-            let versioned = VersionedMessage::V1(message.clone());
+            let versioned = VersionedMessage::V1(message);
             let serialized = versioned.serialize();
 
             // Assert that everything worked:
@@ -665,7 +690,7 @@ mod tests {
             assert!(!serialized.is_empty());
             assert_eq!(serialized[0], V1_PREFIX);
             assert_eq!(&serialized[1..], bytes.as_slice());
-        });
+        }
     }
 
     #[test]

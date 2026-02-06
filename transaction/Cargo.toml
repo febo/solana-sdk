@@ -84,3 +84,4 @@ solana-transaction = { path = ".", features = [
 ] }
 solana-vote-interface = { workspace = true, features = ["bincode"] }
 static_assertions = { workspace = true }
+test-case = { workspace = true }

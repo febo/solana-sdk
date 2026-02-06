@@ -19,9 +19,9 @@ impl CachedMessage<'_> {
             .account_keys
             .iter()
             .enumerate()
-            .map(|(i, _key)| {
+            .map(|(i, key)| {
                 message.is_writable_index(i)
-                    && !reserved_account_keys.contains(&message.account_keys[i])
+                    && !reserved_account_keys.contains(key)
                     && !message.demote_program_id(i)
             })
             .collect::<Vec<_>>();
