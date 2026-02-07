@@ -223,9 +223,9 @@ macro_rules! seeds {
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke<const ACCOUNTS: usize>(
+pub fn invoke<const ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
+    account_views: &[A; ACCOUNTS],
 ) -> ProgramResult {
     invoke_signed::<ACCOUNTS>(instruction, account_views, &[])
 }
@@ -256,9 +256,9 @@ pub fn invoke<const ACCOUNTS: usize>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize>(
+pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
-    account_views: &[&AccountView],
+    account_views: &[A],
 ) -> ProgramResult {
     invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_views, &[])
 }
@@ -279,9 +279,9 @@ pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_with_slice(
+pub fn invoke_with_slice<A: AsRef<AccountView>>(
     instruction: &InstructionView,
-    account_views: &[&AccountView],
+    account_views: &[A],
 ) -> ProgramResult {
     invoke_signed_with_slice(instruction, account_views, &[])
 }
@@ -315,9 +315,9 @@ pub fn invoke_with_slice(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_signed<const ACCOUNTS: usize>(
+pub fn invoke_signed<const ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
+    account_views: &[A; ACCOUNTS],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
     // Check that the number of `ACCOUNTS` provided is not greater than
@@ -337,7 +337,12 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     // that the stack allocated account storage `ACCOUNTS` is sufficient for the
     // number of accounts expected by the instruction.
     unsafe {
-        inner_invoke_signed_with_slice(instruction, account_views, &mut accounts, signers_seeds)
+        inner_invoke_signed_with_slice(
+            instruction,
+            account_views.as_slice(),
+            &mut accounts,
+            signers_seeds,
+        )
     }
 }
 
@@ -379,9 +384,9 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
+pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
-    account_views: &[&AccountView],
+    account_views: &[A],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
     // Check that the number of `MAX_ACCOUNTS` provided is not greater than
@@ -437,9 +442,9 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_signed_with_slice(
+pub fn invoke_signed_with_slice<A: AsRef<AccountView>>(
     instruction: &InstructionView,
-    account_views: &[&AccountView],
+    account_views: &[A],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
     // Check that the number of instruction accounts does not exceed
@@ -475,15 +480,12 @@ pub fn invoke_signed_with_slice(
 /// shorter than the number of accounts expected by the instruction will result in
 /// undefined behavior.
 #[inline(always)]
-unsafe fn inner_invoke_signed_with_slice<'account, 'cpi>(
+unsafe fn inner_invoke_signed_with_slice<'cpi, A: AsRef<AccountView>>(
     instruction: &InstructionView,
-    account_views: &[&'account AccountView],
+    account_views: &[A],
     accounts: &mut [MaybeUninit<CpiAccount<'cpi>>],
     signers_seeds: &[Signer],
-) -> ProgramResult
-where
-    'account: 'cpi,
-{
+) -> ProgramResult {
     // Check that the number of accounts provided is not less than
     // the number of accounts expected by the instruction.
     if account_views.len() < instruction.accounts.len() {
