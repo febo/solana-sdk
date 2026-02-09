@@ -63,7 +63,6 @@ use {
     solana_hash::Hash,
     solana_instruction::Instruction,
     solana_sanitize::{Sanitize, SanitizeError},
-    solana_sdk_ids::bpf_loader_upgradeable,
     std::{collections::HashSet, mem::MaybeUninit},
 };
 
@@ -340,47 +339,21 @@ impl Message {
 
     /// Returns true if any instruction invokes the account at this index as a program.
     pub fn is_key_called_as_program(&self, key_index: usize) -> bool {
-        if let Ok(key_index) = u8::try_from(key_index) {
-            self.instructions
-                .iter()
-                .any(|ix| ix.program_id_index == key_index)
-        } else {
-            false
-        }
+        crate::is_key_called_as_program(&self.instructions, key_index)
     }
 
     /// Returns `true` if the account at the specified index was requested to be
     /// writable.
     ///
     /// This method should not be used directly.
-    pub(crate) fn is_writable_index(&self, key_index: usize) -> bool {
-        let num_account_keys = self.account_keys.len();
-        let num_signed_accounts = usize::from(self.header.num_required_signatures);
-
-        if key_index >= num_account_keys {
-            return false;
-        }
-
-        if key_index >= num_signed_accounts {
-            // Non-signer region
-            let num_unsigned_accounts = num_account_keys.saturating_sub(num_signed_accounts);
-            let num_writable_unsigned_accounts = num_unsigned_accounts
-                .saturating_sub(usize::from(self.header.num_readonly_unsigned_accounts));
-            let unsigned_account_index = key_index.saturating_sub(num_signed_accounts);
-            unsigned_account_index < num_writable_unsigned_accounts
-        } else {
-            // Signer region
-            let num_writable_signed_accounts = num_signed_accounts
-                .saturating_sub(usize::from(self.header.num_readonly_signed_accounts));
-            key_index < num_writable_signed_accounts
-        }
+    #[inline(always)]
+    pub(crate) fn is_writable_index(&self, i: usize) -> bool {
+        crate::is_writable_index(i, self.header, &self.account_keys)
     }
 
     /// Returns true if the BPF upgradeable loader is present in the account keys.
     pub fn is_upgradeable_loader_present(&self) -> bool {
-        self.account_keys
-            .iter()
-            .any(|&key| key == bpf_loader_upgradeable::id())
+        crate::is_upgradeable_loader_present(&self.account_keys)
     }
 
     /// Returns `true` if the account at the specified index was requested as
@@ -402,30 +375,17 @@ impl Message {
         key_index: usize,
         reserved_account_keys: Option<&HashSet<Address>>,
     ) -> bool {
-        if !self.is_writable_index(key_index) {
-            return false;
-        }
-
-        // Check if reserved
-        if let Some(reserved) = reserved_account_keys {
-            if let Some(key) = self.account_keys.get(key_index) {
-                if reserved.contains(key) {
-                    return false;
-                }
-            }
-        }
-
-        // Demote program IDs, unless the upgradeable loader is present
-        // (upgradeable programs need to be writable for upgrades)
-        if self.demote_program_id(key_index) {
-            return false;
-        }
-
-        true
+        crate::is_maybe_writable(
+            key_index,
+            self.header,
+            &self.account_keys,
+            &self.instructions,
+            reserved_account_keys,
+        )
     }
 
     pub fn demote_program_id(&self, i: usize) -> bool {
-        self.is_key_called_as_program(i) && !self.is_upgradeable_loader_present()
+        crate::is_program_id_write_demoted(i, &self.account_keys, &self.instructions)
     }
 
     /// Calculate the serialized size of the message in bytes.
@@ -874,7 +834,7 @@ pub fn deserialize(input: &[u8]) -> Result<(Message, usize), MessageError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {super::*, solana_sdk_ids::bpf_loader_upgradeable};
 
     /// Builder for constructing V1 messages.
     ///
