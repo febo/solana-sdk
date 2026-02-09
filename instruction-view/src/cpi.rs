@@ -33,7 +33,7 @@ pub const MAX_CPI_ACCOUNTS: usize = 128;
 /// the memory layout as expected by `sol_invoke_signed_c` syscall.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
-pub struct CpiAccount<A: AsRef<AccountView> + Copy> {
+pub struct CpiAccount<'a> {
     /// Address of the account.
     address: *const Address,
 
@@ -65,12 +65,11 @@ pub struct CpiAccount<A: AsRef<AccountView> + Copy> {
     /// `&'a AccountView` lives. Instead of holding a reference to the actual `AccountView`,
     /// which would increase the size of the type, we claim to hold a reference without
     /// actually holding one using a `PhantomData<&'a AccountView>`.
-    _account_view: PhantomData<A>,
+    _account_view: PhantomData<&'a AccountView>,
 }
 
-impl<A: AsRef<AccountView> + Copy> From<A> for CpiAccount<A> {
-    fn from(account: A) -> Self {
-        let account = account.as_ref();
+impl From<&AccountView> for CpiAccount<'_> {
+    fn from(account: &AccountView) -> Self {
         Self {
             address: account.address(),
             // SAFETY:  Dereferencing `account.account_ptr()` to access its
@@ -88,7 +87,7 @@ impl<A: AsRef<AccountView> + Copy> From<A> for CpiAccount<A> {
             is_signer: account.is_signer(),
             is_writable: account.is_writable(),
             executable: account.executable(),
-            _account_view: PhantomData::<A>,
+            _account_view: PhantomData::<&AccountView>,
         }
     }
 }
@@ -224,7 +223,7 @@ macro_rules! seeds {
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke<const ACCOUNTS: usize, A: AsRef<AccountView> + Copy>(
+pub fn invoke<const ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
     account_views: &[A; ACCOUNTS],
 ) -> ProgramResult {
@@ -257,7 +256,7 @@ pub fn invoke<const ACCOUNTS: usize, A: AsRef<AccountView> + Copy>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView> + Copy>(
+pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
     account_views: &[A],
 ) -> ProgramResult {
@@ -280,7 +279,7 @@ pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView> + Cop
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_with_slice<A: AsRef<AccountView> + Copy>(
+pub fn invoke_with_slice<A: AsRef<AccountView>>(
     instruction: &InstructionView,
     account_views: &[A],
 ) -> ProgramResult {
@@ -316,7 +315,7 @@ pub fn invoke_with_slice<A: AsRef<AccountView> + Copy>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_signed<const ACCOUNTS: usize, A: AsRef<AccountView> + Copy>(
+pub fn invoke_signed<const ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
     account_views: &[A; ACCOUNTS],
     signers_seeds: &[Signer],
@@ -330,7 +329,7 @@ pub fn invoke_signed<const ACCOUNTS: usize, A: AsRef<AccountView> + Copy>(
         );
     }
 
-    let mut accounts = [MaybeUninit::<CpiAccount<A>>::uninit(); ACCOUNTS];
+    let mut accounts = [MaybeUninit::<CpiAccount>::uninit(); ACCOUNTS];
 
     // SAFETY: The array of `AccountView`s will be checked to ensure that it has
     // the same number of accounts as the instruction – this indirectly validates
@@ -384,7 +383,7 @@ pub fn invoke_signed<const ACCOUNTS: usize, A: AsRef<AccountView> + Copy>(
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView> + Copy>(
+pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView>>(
     instruction: &InstructionView,
     account_views: &[A],
     signers_seeds: &[Signer],
@@ -404,7 +403,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView
         return Err(ProgramError::InvalidArgument);
     }
 
-    let mut accounts = [MaybeUninit::<CpiAccount<A>>::uninit(); MAX_ACCOUNTS];
+    let mut accounts = [MaybeUninit::<CpiAccount>::uninit(); MAX_ACCOUNTS];
 
     // SAFETY: The stack allocated account storage `MAX_ACCOUNTS` was validated
     // to be sufficient for the number of accounts expected by the instruction.
@@ -446,7 +445,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView
 /// accounts, it is necessary to pass a duplicated reference to the same account
 /// to maintain the 1:1 relationship between accounts and instruction accounts.
 #[inline(always)]
-pub fn invoke_signed_with_slice<A: AsRef<AccountView> + Copy>(
+pub fn invoke_signed_with_slice<A: AsRef<AccountView>>(
     instruction: &InstructionView,
     account_views: &[A],
     signers_seeds: &[Signer],
@@ -457,7 +456,7 @@ pub fn invoke_signed_with_slice<A: AsRef<AccountView> + Copy>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let mut accounts = Box::<[CpiAccount<A>]>::new_uninit_slice(instruction.accounts.len());
+    let mut accounts = Box::<[CpiAccount]>::new_uninit_slice(instruction.accounts.len());
 
     // SAFETY: The allocated `accounts` slice has the same size as the expected number
     // of instruction accounts.
@@ -489,10 +488,10 @@ pub fn invoke_signed_with_slice<A: AsRef<AccountView> + Copy>(
 /// shorter than the number of accounts expected by the instruction will result in
 /// undefined behavior.
 #[inline(always)]
-unsafe fn inner_invoke_signed_with_slice<A: AsRef<AccountView> + Copy>(
+unsafe fn inner_invoke_signed_with_slice<A: AsRef<AccountView>>(
     instruction: &InstructionView,
     account_views: &[A],
-    accounts: &mut [MaybeUninit<CpiAccount<A>>],
+    accounts: &mut [MaybeUninit<CpiAccount>],
     signers_seeds: &[Signer],
 ) -> ProgramResult {
     // Check that the number of accounts provided is not less than
@@ -529,7 +528,7 @@ unsafe fn inner_invoke_signed_with_slice<A: AsRef<AccountView> + Copy>(
                 return Err(ProgramError::AccountBorrowFailed);
             }
 
-            account.write(CpiAccount::from(*account_view));
+            account.write(CpiAccount::from(account_view.as_ref()));
 
             Ok(())
         })?;
@@ -537,7 +536,7 @@ unsafe fn inner_invoke_signed_with_slice<A: AsRef<AccountView> + Copy>(
     // SAFETY: At this point it is guaranteed that instruction accounts are
     // borrowable according to their mutability on the instruction.
     unsafe {
-        invoke_signed_unchecked::<A>(
+        invoke_signed_unchecked(
             instruction,
             from_raw_parts(accounts.as_ptr() as _, instruction.accounts.len()),
             signers_seeds,
@@ -564,11 +563,8 @@ unsafe fn inner_invoke_signed_with_slice<A: AsRef<AccountView> + Copy>(
 /// callee, then Rust's aliasing rules will be violated and cause undefined
 /// behavior.
 #[inline(always)]
-pub unsafe fn invoke_unchecked<A: AsRef<AccountView> + Copy>(
-    instruction: &InstructionView,
-    accounts: &[CpiAccount<A>],
-) {
-    invoke_signed_unchecked::<A>(instruction, accounts, &[])
+pub unsafe fn invoke_unchecked(instruction: &InstructionView, accounts: &[CpiAccount]) {
+    invoke_signed_unchecked(instruction, accounts, &[])
 }
 
 /// Invoke a cross-program instruction with signatures but don't enforce Rust's
@@ -589,9 +585,9 @@ pub unsafe fn invoke_unchecked<A: AsRef<AccountView> + Copy>(
 /// callee, then Rust's aliasing rules will be violated and cause undefined
 /// behavior.
 #[inline(always)]
-pub unsafe fn invoke_signed_unchecked<A: AsRef<AccountView> + Copy>(
+pub unsafe fn invoke_signed_unchecked(
     instruction: &InstructionView,
-    accounts: &[CpiAccount<A>],
+    accounts: &[CpiAccount],
     signers_seeds: &[Signer],
 ) {
     #[cfg(any(target_os = "solana", target_arch = "bpf"))]

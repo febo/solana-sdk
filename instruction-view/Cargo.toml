@@ -16,11 +16,7 @@ all-features = true
 rustdoc-args = ["--cfg=docsrs"]
 
 [features]
-cpi = [
-    "dep:solana-define-syscall",
-    "dep:solana-program-error",
-    "solana-account-view/copy",
-]
+cpi = ["dep:solana-define-syscall", "dep:solana-program-error"]
 slice-cpi = ["cpi"]
 
 [dependencies]
