@@ -329,7 +329,7 @@ pub fn invoke_signed<const ACCOUNTS: usize, A: AsRef<AccountView>>(
         );
     }
 
-    let mut accounts = [MaybeUninit::<CpiAccount>::uninit(); ACCOUNTS];
+    let mut accounts = [const { MaybeUninit::<CpiAccount>::uninit() }; ACCOUNTS];
 
     // SAFETY: The array of `AccountView`s will be checked to ensure that it has
     // the same number of accounts as the instruction – this indirectly validates
@@ -403,7 +403,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize, A: AsRef<AccountView
         return Err(ProgramError::InvalidArgument);
     }
 
-    let mut accounts = [MaybeUninit::<CpiAccount>::uninit(); MAX_ACCOUNTS];
+    let mut accounts = [const { MaybeUninit::<CpiAccount>::uninit() }; MAX_ACCOUNTS];
 
     // SAFETY: The stack allocated account storage `MAX_ACCOUNTS` was validated
     // to be sufficient for the number of accounts expected by the instruction.
