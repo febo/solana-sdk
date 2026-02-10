@@ -317,10 +317,27 @@ unsafe impl<'de, C: Config> SchemaRead<'de, C> for VersionedTransaction {
             <VersionedMessage as SchemaRead<'de, C>>::read(reader, unsafe {
                 &mut *(addr_of_mut!((*dst_ptr).message)).cast::<MaybeUninit<_>>()
             })?;
+
+            // SAFETY: The transaction is fully initialized at this point since
+            // both `signatures` and `message` have been read.
+            let transaction = unsafe { dst.assume_init_ref() };
+
+            // validate that we got either a legacy or V0 message
+            if !matches!(
+                transaction.message,
+                VersionedMessage::Legacy(_) | VersionedMessage::V0(_)
+            ) {
+                return Err(ReadError::Custom("invalid message version"));
+            }
         } else if *discriminator == V1_PREFIX {
             // V1 transaction
 
             let message = <VersionedMessage as SchemaRead<'de, C>>::get(&mut reader)?;
+
+            // validate that we got a V1 message
+            if !matches!(message, VersionedMessage::V1(_)) {
+                return Err(ReadError::Custom("invalid message version"));
+            }
 
             let expected_signatures_len = message.header().num_required_signatures as usize;
 
