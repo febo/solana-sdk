@@ -355,10 +355,6 @@ impl AccountView {
     /// The lamports must be moved from the account prior to closing it to prevent
     /// an unbalanced instruction error.
     ///
-    /// If [`Self::resize`] is called after closing the account, it might incorrectly
-    /// return an error for going over the limit if the account previously had space
-    /// allocated since this method does not update the [`Self::resize_delta`] value.
-    ///
     /// # Safety
     ///
     /// This method is unsafe because it does not check if the account data is already
