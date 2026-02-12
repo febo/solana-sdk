@@ -9,7 +9,7 @@ use {
         marker::PhantomData,
         mem::{size_of, ManuallyDrop},
         ops::{Deref, DerefMut},
-        ptr::{write, write_bytes, NonNull},
+        ptr::{addr_of_mut, write, write_bytes, NonNull},
         slice::{from_raw_parts, from_raw_parts_mut},
     },
     solana_address::Address,
@@ -132,7 +132,7 @@ impl AccountView {
     /// which can be modified by `assign` and `close` methods. It is undefined
     /// behavior to use this reference after the account owner has been modified.
     #[inline(always)]
-    pub unsafe fn owner(&self) -> &Address {
+    pub fn owner(&self) -> &Address {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { &(*self.raw).owner }
     }
@@ -194,8 +194,7 @@ impl AccountView {
     /// Checks if the account is owned by the given program.
     #[inline(always)]
     pub fn owned_by(&self, program: &Address) -> bool {
-        // SAFETY: The `raw` pointer is guaranteed to be valid.
-        unsafe { self.owner() == program }
+        unsafe { (*self.raw).owner == *program }
     }
 
     /// Changes the owner of the account.
@@ -206,8 +205,8 @@ impl AccountView {
     /// to the `owner` returned by [`Self::owner`].
     #[allow(clippy::clone_on_copy)]
     #[inline(always)]
-    pub unsafe fn assign(&self, new_owner: &Address) {
-        write(&mut (*self.raw).owner, new_owner.clone());
+    pub fn assign(&mut self, new_owner: &Address) {
+        unsafe { write(addr_of_mut!((*self.raw).owner), new_owner.clone()) };
     }
 
     /// Return `true` if the account data is borrowed in any form.
@@ -241,8 +240,8 @@ impl AccountView {
     /// flag untouched. Useful when an instruction has verified non-duplicate accounts.
     #[allow(clippy::mut_from_ref)]
     #[inline(always)]
-    pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
-        from_raw_parts_mut(self.data_ptr(), self.data_len())
+    pub unsafe fn borrow_unchecked_mut(&mut self) -> &mut [u8] {
+        from_raw_parts_mut(self.data_ptr_mut(), self.data_len())
     }
 
     /// Tries to get an immutable reference to the account data, failing if the account
@@ -270,7 +269,7 @@ impl AccountView {
 
     /// Tries to get a mutable reference to the account data, failing if the account
     /// is already borrowed in any form.
-    pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
+    pub fn try_borrow_mut(&mut self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         // check if the account data can be mutably borrowed
         self.check_borrow_mut()?;
 
@@ -284,7 +283,9 @@ impl AccountView {
 
         // return the mutable reference to data
         Ok(RefMut {
-            value: unsafe { NonNull::from(from_raw_parts_mut(self.data_ptr(), self.data_len())) },
+            value: unsafe {
+                NonNull::from(from_raw_parts_mut(self.data_ptr_mut(), self.data_len()))
+            },
             state: unsafe { NonNull::new_unchecked(borrow_state) },
             marker: PhantomData,
         })
@@ -330,7 +331,7 @@ impl AccountView {
     /// an unbalanced instruction error. Any existing reference to the account owner
     /// will be invalidated after calling this method.
     #[inline]
-    pub fn close(&self) -> ProgramResult {
+    pub fn close(&mut self) -> ProgramResult {
         // Make sure the account is not borrowed since we are about to
         // resize the data to zero.
         if self.is_borrowed() {
@@ -365,18 +366,18 @@ impl AccountView {
     /// instances of `AccountView` that were created by the runtime and received
     /// in the `process_instruction` entrypoint of a program.
     #[inline(always)]
-    pub unsafe fn close_unchecked(&self) {
+    pub unsafe fn close_unchecked(&mut self) {
         // We take advantage that the 48 bytes before the account data are:
         // - 32 bytes for the owner
         // - 8 bytes for the lamports
         // - 8 bytes for the data_len
         //
         // So we can zero out them directly.
-        write_bytes(self.data_ptr().sub(48), 0, 48);
+        write_bytes(self.data_ptr_mut().sub(48), 0, 48);
     }
 
     /// Returns the raw pointer to the `Account` struct.
-    pub const fn account_ptr(&self) -> *const RuntimeAccount {
+    pub const fn account_ptr_mut(&mut self) -> *mut RuntimeAccount {
         self.raw
     }
 
@@ -390,7 +391,22 @@ impl AccountView {
     /// (e.g., from any of `borrow` or `borrow_mut` methods) to the same data
     /// is still alive.
     #[inline(always)]
-    pub fn data_ptr(&self) -> *mut u8 {
+    pub const fn data_ptr(&self) -> *const u8 {
+        // SAFETY: The `raw` pointer is guaranteed to be valid.
+        unsafe { (self.raw as *const u8).add(size_of::<RuntimeAccount>()) }
+    }
+
+    /// Returns the memory address of the account data.
+    ///
+    /// # Important
+    ///
+    /// Obtaining the raw pointer itself is safe, but de-referencing it requires
+    /// the caller to uphold Rust's aliasing rules. It is undefined behavior to
+    /// de-reference the pointer or write through it while any safe reference
+    /// (e.g., from any of `borrow` or `borrow_mut` methods) to the same data
+    /// is still alive.
+    #[inline(always)]
+    pub const fn data_ptr_mut(&mut self) -> *mut u8 {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (self.raw as *mut u8).add(size_of::<RuntimeAccount>()) }
     }
@@ -657,7 +673,7 @@ mod tests {
         let account = data.as_mut_ptr() as *mut RuntimeAccount;
         unsafe { (*account).data_len = 8 };
 
-        let account_view = AccountView { raw: account };
+        let mut account_view = AccountView { raw: account };
 
         // Check that we can borrow data and lamports.
         assert!(account_view.check_borrow().is_ok());
@@ -665,7 +681,7 @@ mod tests {
 
         // It should be sound to mutate the data through the data pointer
         // while no other borrows exist.
-        let data_ptr = account_view.data_ptr();
+        let data_ptr = account_view.data_ptr_mut();
         unsafe {
             // There are 8 bytes of trailing data.
             let data = from_raw_parts_mut(data_ptr, 8);
@@ -690,7 +706,6 @@ mod tests {
         assert!(account_view.check_borrow().is_err());
         assert!(account_view.try_borrow().is_err());
         assert!(account_view.check_borrow_mut().is_err());
-        assert!(account_view.try_borrow_mut().is_err());
 
         // Drop the immutable borrows.
         refs.iter_mut().for_each(|r| {
@@ -704,16 +719,8 @@ mod tests {
 
         // Borrow mutable data.
         let ref_mut = account_view.try_borrow_mut().unwrap();
-        // It should be sound to get the data pointer while the data is borrowed
-        // as long as we don't use it.
-        let _data_ptr = account_view.data_ptr();
 
-        // Check that we cannot borrow the data anymore.
-        assert!(account_view.check_borrow().is_err());
-        assert!(account_view.try_borrow().is_err());
-        assert!(account_view.check_borrow_mut().is_err());
-        assert!(account_view.try_borrow_mut().is_err());
-
+        // And drops it.
         drop(ref_mut);
 
         // We should be able to borrow the data again.
