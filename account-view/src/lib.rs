@@ -124,13 +124,14 @@ impl AccountView {
 
     /// Return a reference to the address of the program that owns this account.
     ///
-    /// For ownership checks, use the safe `owned_by` method instead.
+    /// For ownership checks, use the safe [`Self::owned_by`] method instead.
     ///
-    /// # Safety
+    /// # Important
     ///
-    /// This method is unsafe because it returns a reference to the owner field,
-    /// which can be modified by `assign` and `close` methods. It is undefined
-    /// behavior to use this reference after the account owner has been modified.
+    /// This method returns a reference to the owner field of the account, which
+    /// can be modified by programs using [`Self::assign`]. It is the caller's
+    /// responsibility to ensure that this reference is not used after the
+    /// account owner has been changed.
     #[inline(always)]
     pub fn owner(&self) -> &Address {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
@@ -194,6 +195,7 @@ impl AccountView {
     /// Checks if the account is owned by the given program.
     #[inline(always)]
     pub fn owned_by(&self, program: &Address) -> bool {
+        // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (*self.raw).owner == *program }
     }
 
@@ -205,8 +207,8 @@ impl AccountView {
     /// to the `owner` returned by [`Self::owner`].
     #[allow(clippy::clone_on_copy)]
     #[inline(always)]
-    pub fn assign(&mut self, new_owner: &Address) {
-        unsafe { write(addr_of_mut!((*self.raw).owner), new_owner.clone()) };
+    pub unsafe fn assign(&mut self, new_owner: &Address) {
+        write(addr_of_mut!((*self.raw).owner), new_owner.clone());
     }
 
     /// Return `true` if the account data is borrowed in any form.
