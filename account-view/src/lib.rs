@@ -177,7 +177,7 @@ impl AccountView {
 
     /// Set the lamports in the account.
     #[inline(always)]
-    pub fn set_lamports(&self, lamports: u64) {
+    pub fn set_lamports(&mut self, lamports: u64) {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe {
             (*self.raw).lamports = lamports;
