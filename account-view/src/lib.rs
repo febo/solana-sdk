@@ -124,7 +124,8 @@ impl AccountView {
 
     /// Return a reference to the address of the program that owns this account.
     ///
-    /// For ownership checks, use the safe [`Self::owned_by`] method instead.
+    /// For ownership checks, it is recommended to use the [`Self::owned_by`]
+    /// method instead.
     ///
     /// # Important
     ///
