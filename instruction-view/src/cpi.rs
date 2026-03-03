@@ -77,9 +77,7 @@ impl From<&AccountView> for CpiAccount<'_> {
             lamports: unsafe { &(*account.account_ptr()).lamports },
             data_len: account.data_len() as u64,
             data: account.data_ptr(),
-            // SAFETY: `account.owner()` is not expected to be updated between
-            // the creation of the CPI account and invocation of the program.
-            owner: unsafe { account.owner() },
+            owner: account.owner(),
             // The `rent_epoch` field is not present in the `AccountView` struct,
             // since the value occurs after the variable data of the account in
             // the runtime input data.
