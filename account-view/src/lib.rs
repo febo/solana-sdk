@@ -243,7 +243,7 @@ impl AccountView {
     #[allow(clippy::mut_from_ref)]
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&mut self) -> &mut [u8] {
-        from_raw_parts_mut(self.data_ptr_mut(), self.data_len())
+        from_raw_parts_mut(self.data_mut_ptr(), self.data_len())
     }
 
     /// Tries to get an immutable reference to the account data, failing if the account
@@ -286,7 +286,7 @@ impl AccountView {
         // return the mutable reference to data
         Ok(RefMut {
             value: unsafe {
-                NonNull::from(from_raw_parts_mut(self.data_ptr_mut(), self.data_len()))
+                NonNull::from(from_raw_parts_mut(self.data_mut_ptr(), self.data_len()))
             },
             state: unsafe { NonNull::new_unchecked(borrow_state) },
             marker: PhantomData,
@@ -375,11 +375,16 @@ impl AccountView {
         // - 8 bytes for the data_len
         //
         // So we can zero out them directly.
-        write_bytes(self.data_ptr_mut().sub(48), 0, 48);
+        write_bytes(self.data_mut_ptr().sub(48), 0, 48);
     }
 
-    /// Returns the raw pointer to the `Account` struct.
-    pub const fn account_ptr_mut(&mut self) -> *mut RuntimeAccount {
+    /// Returns a raw pointer to the `RuntimeAccount` struct.
+    pub fn account_ptr(&self) -> *const RuntimeAccount {
+        self.raw as *const _
+    }
+
+    /// Returns a mutable raw pointer to the `RuntimeAccount` struct.
+    pub fn account_mut_ptr(&mut self) -> *mut RuntimeAccount {
         self.raw
     }
 
@@ -408,7 +413,7 @@ impl AccountView {
     /// (e.g., from any of `borrow` or `borrow_mut` methods) to the same data
     /// is still alive.
     #[inline(always)]
-    pub const fn data_ptr_mut(&mut self) -> *mut u8 {
+    pub fn data_mut_ptr(&mut self) -> *mut u8 {
         // SAFETY: The `raw` pointer is guaranteed to be valid.
         unsafe { (self.raw as *mut u8).add(size_of::<RuntimeAccount>()) }
     }
@@ -692,7 +697,7 @@ mod tests {
 
         // It should be sound to mutate the data through the data pointer
         // while no other borrows exist.
-        let data_ptr = account_view.data_ptr_mut();
+        let data_ptr = account_view.data_mut_ptr();
         unsafe {
             // There are 8 bytes of trailing data.
             let data = from_raw_parts_mut(data_ptr, 8);
