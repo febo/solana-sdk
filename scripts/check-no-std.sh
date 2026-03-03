@@ -28,6 +28,7 @@ no_std_crates=(
   -p solana-program-log
   -p solana-program-log-macro
   -p solana-program-memory
+  -p solana-program-option
   -p solana-program-pack
   -p solana-pubkey
   -p solana-rent
@@ -36,7 +37,6 @@ no_std_crates=(
   -p solana-sha256-hasher
   -p solana-signature
   -p solana-sysvar-id
-  -p solana-system-interface
 )
 # Use the upstream BPF target, which doesn't support std, to make sure that our
 # no_std support really works.

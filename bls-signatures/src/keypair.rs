@@ -54,7 +54,13 @@ impl Keypair {
 
     /// Generate a proof of possession for the given keypair
     pub fn proof_of_possession(&self, payload: Option<&[u8]>) -> ProofOfPossessionProjective {
-        self.secret.proof_of_possession(payload)
+        match payload {
+            Some(p) => self.secret.proof_of_possession(Some(p)),
+            None => {
+                let pubkey_bytes = self.public.to_bytes_compressed();
+                self.secret.proof_of_possession(Some(&pubkey_bytes))
+            }
+        }
     }
 
     /// Sign a message using the provided secret key
@@ -120,7 +126,7 @@ impl Keypair {
 
     pub fn write_json<W: Write>(&self, writer: &mut W) -> Result<String, Box<dyn error::Error>> {
         let json = serde_json::to_string(&Into::<[u8; BLS_KEYPAIR_SIZE]>::into(self).as_slice())?;
-        writer.write_all(&json.clone().into_bytes())?;
+        writer.write_all(json.as_bytes())?;
         Ok(json)
     }
 
@@ -160,7 +166,7 @@ mod tests {
 
     #[test]
     fn test_keygen_derive() {
-        let ikm = b"test_ikm";
+        let ikm = b"test_ikm_that_is_at_least_32_bytes_long";
         let secret = SecretKey::derive(ikm).unwrap();
         let public: PubkeyAffine = PubkeyProjective::from_secret(&secret).into();
         let keypair = Keypair::derive(ikm).unwrap();
@@ -190,5 +196,23 @@ mod tests {
             .unwrap();
         let read_keypair = Keypair::read_json_file(&temp_keypair_file).unwrap();
         assert_eq!(original_keypair, read_keypair);
+    }
+
+    #[test]
+    fn test_keygen_derive_short_ikm() {
+        let short_ikm = b"test_ikm"; // 8 bytes
+        assert_eq!(
+            SecretKey::derive(short_ikm).unwrap_err(),
+            BlsError::KeyDerivation
+        );
+        assert_eq!(
+            Keypair::derive(short_ikm).unwrap_err(),
+            BlsError::KeyDerivation
+        );
+        let exactly_31_bytes = b"0123456789012345678901234567890";
+        assert_eq!(
+            SecretKey::derive(exactly_31_bytes).unwrap_err(),
+            BlsError::KeyDerivation
+        );
     }
 }

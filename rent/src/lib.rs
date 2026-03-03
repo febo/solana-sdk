@@ -28,10 +28,12 @@ pub struct Rent {
 
     /// Formerly, the amount of time (in years) a balance must include rent for
     /// the account to be rent exempt. Now it's just empty space.
-    exemption_threshold: [u8; 8],
+    #[deprecated(since = "4.1.0", note = "Use `Rent::minimum_balance()` directly")]
+    pub exemption_threshold: [u8; 8],
 
     /// Formerly, the percentage of collected rent that is burned.
-    burn_percent: u8,
+    #[deprecated(since = "4.1.0", note = "Rent no longer exists")]
+    pub burn_percent: u8,
 }
 
 /// Maximum permitted size of account data (10 MiB).
@@ -76,6 +78,7 @@ pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 
 impl Default for Rent {
     fn default() -> Self {
+        #[allow(deprecated)]
         Self {
             lamports_per_byte: DEFAULT_LAMPORTS_PER_BYTE,
             exemption_threshold: SIMD0194_EXEMPTION_THRESHOLD,
@@ -140,6 +143,7 @@ impl Rent {
         // In all other cases, perform the full calculation using floating-point
         // operations. Note that on BPF targets, floating-point operations are
         // not supported, so panic in that case.
+        #[allow(deprecated)]
         if self.exemption_threshold == SIMD0194_EXEMPTION_THRESHOLD {
             (ACCOUNT_STORAGE_OVERHEAD + bytes) * self.lamports_per_byte
         } else if self.exemption_threshold == CURRENT_EXEMPTION_THRESHOLD {
@@ -166,13 +170,10 @@ impl Rent {
     ///
     /// # Returns
     ///
-    /// The minimum balance in lamports for rent exemption.
-    ///
-    /// # Errors
-    ///
-    /// Returns `ProgramError::InvalidArgument` if `data_len` exceeds the maximum
-    /// permitted data length or if the `lamports_per_byte` is too large based on
-    /// the `exemption_threshold`, which would cause an overflow.
+    /// * `Some(u64)` - The minimum balance in lamports for rent exemption, if all checks pass.
+    /// * `None` - If `data_len` exceeds the maximum permitted data length, or if the
+    ///   `lamports_per_byte` is too large based on the `exemption_threshold`, which
+    ///   would cause an overflow.
     #[inline(always)]
     pub fn try_minimum_balance(&self, data_len: usize) -> Option<u64> {
         if data_len as u64 > MAX_PERMITTED_DATA_LENGTH {
@@ -182,6 +183,7 @@ impl Rent {
         // Validate `lamports_per_byte` based on `exemption_threshold`
         // to prevent overflow.
 
+        #[allow(deprecated)]
         if (self.lamports_per_byte > CURRENT_MAX_LAMPORTS_PER_BYTE
             && self.exemption_threshold == CURRENT_EXEMPTION_THRESHOLD)
             || (self.lamports_per_byte > SIMD0194_MAX_LAMPORTS_PER_BYTE
@@ -223,6 +225,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
+        #[allow(deprecated)]
         let rent = Rent {
             lamports_per_byte: 1,
             exemption_threshold: 2.2f64.to_le_bytes(),
@@ -243,6 +246,7 @@ mod tests {
         #[test]
         fn test_minimum_balance(bytes in 0usize..=MAX_PERMITTED_DATA_LENGTH as usize) {
             let default_rent = Rent::default();
+            #[allow(deprecated)]
             let previous_rent = Rent {
                 lamports_per_byte: DEFAULT_LAMPORTS_PER_BYTE / 2,
                 exemption_threshold: 2.0f64.to_le_bytes(),
@@ -252,6 +256,7 @@ mod tests {
             assert_eq!(default_calc, previous_rent.minimum_balance(bytes));
 
             // check that the calculation gives the same result using floats
+            #[allow(deprecated)]
             let float_calc = (((ACCOUNT_STORAGE_OVERHEAD + bytes as u64) * previous_rent.lamports_per_byte) as f64
                 * f64::from_le_bytes(previous_rent.exemption_threshold)) as u64;
             assert_eq!(default_calc, float_calc);

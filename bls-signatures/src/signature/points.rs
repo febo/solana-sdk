@@ -11,12 +11,12 @@ use blstrs::G1Projective;
 use {
     crate::{
         error::BlsError,
-        hash::hash_signature_message_to_point,
+        hash::HashedMessage,
         pubkey::{AddToPubkeyProjective, AsPubkeyAffine, PubkeyProjective, VerifiablePubkey},
         signature::bytes::{Signature, SignatureCompressed},
     },
-    blstrs::{Bls12, G2Affine, G2Prepared, G2Projective, Gt},
-    group::Group,
+    blstrs::{Bls12, G2Affine, G2Prepared, G2Projective, Gt, Scalar},
+    group::{prime::PrimeCurveAffine, Group},
     pairing::{MillerLoopResult, MultiMillerLoop},
 };
 #[cfg(all(feature = "parallel", not(target_os = "solana")))]
@@ -82,6 +82,37 @@ impl SignatureProjective {
         Ok(aggregate)
     }
 
+    // Aggregate a list of signatures and scalar elements using MSM on these signatures
+    #[allow(clippy::arithmetic_side_effects)]
+    pub fn aggregate_with_scalars<'a, S: AddToSignatureProjective + ?Sized + 'a>(
+        signatures: impl ExactSizeIterator<Item = &'a S>,
+        scalars: impl ExactSizeIterator<Item = &'a Scalar>,
+    ) -> Result<SignatureProjective, BlsError> {
+        if signatures.len() != scalars.len() {
+            return Err(BlsError::InputLengthMismatch);
+        }
+
+        if signatures.len() == 0 {
+            return Err(BlsError::EmptyAggregation);
+        }
+
+        let mut points = alloc::vec::Vec::with_capacity(signatures.len());
+        let mut scalar_values = alloc::vec::Vec::with_capacity(scalars.len());
+
+        for (signature, scalar) in signatures.zip(scalars) {
+            let mut point = SignatureProjective::identity();
+            signature.add_to_accumulator(&mut point)?;
+
+            points.push(point.0);
+            scalar_values.push(*scalar);
+        }
+
+        Ok(SignatureProjective(G2Projective::multi_exp(
+            &points,
+            &scalar_values,
+        )))
+    }
+
     /// Verify a list of signatures against a message and a list of public keys
     pub fn verify_aggregate<
         'a,
@@ -142,12 +173,15 @@ impl SignatureProjective {
         let public_keys_len = public_keys.len();
         for pubkey in public_keys {
             let g1_affine = pubkey.try_as_affine()?;
+            if bool::from(g1_affine.0.is_identity()) {
+                return Err(BlsError::VerificationFailed);
+            }
             pubkeys_affine.push(g1_affine.0);
         }
 
         let mut prepared_hashes = alloc::vec::Vec::with_capacity(messages.len());
         for message in messages {
-            let hashed_message: G2Affine = hash_signature_message_to_point(message).into();
+            let hashed_message = HashedMessage::new(message).0;
             prepared_hashes.push(G2Prepared::from(hashed_message));
         }
 
@@ -284,6 +318,9 @@ impl SignatureProjective {
                         .par_iter()
                         .map(|pk| {
                             let affine = pk.try_as_affine()?;
+                            if bool::from(affine.0.is_identity()) {
+                                return Err(BlsError::VerificationFailed);
+                            }
                             Ok::<G1Affine, BlsError>(affine.0)
                         })
                         .collect()
@@ -292,8 +329,7 @@ impl SignatureProjective {
                     messages
                         .par_iter()
                         .map(|msg| {
-                            let hashed_message: G2Affine =
-                                hash_signature_message_to_point(msg).into();
+                            let hashed_message: G2Affine = HashedMessage::new(msg).0;
                             Ok::<_, BlsError>(G2Prepared::from(hashed_message))
                         })
                         .collect()
@@ -389,4 +425,48 @@ impl_add_to_accumulator!(
     SignatureProjective,
     SignatureCompressed,
     convert
+);
+
+/// A BLS signature in an affine point representation that is guaranteed to
+/// be a point on the curve, but it is *not* guaranteed to be in the prime-order
+/// subgroup G2.
+///
+/// This type allows for efficient "unchecked" deserialization. It is designed
+/// to be used with aggregation functions where the expensive subgroup check
+/// can be performed on the aggregate instead of each individual signature.
+#[cfg(not(target_os = "solana"))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct SignatureAffineUnchecked(pub(crate) G2Affine);
+
+#[cfg(not(target_os = "solana"))]
+impl SignatureAffineUnchecked {
+    /// Performs the subgroup check (coset check) on this point.
+    ///
+    /// This verifies that the point is on the curve and in the correct q-order subgroup G2.
+    /// Returns a validated `SignatureAffine` on success.
+    pub fn verify_subgroup(&self) -> Result<SignatureAffine, BlsError> {
+        if bool::from(self.0.is_torsion_free()) {
+            Ok(SignatureAffine(self.0))
+        } else {
+            Err(BlsError::VerificationFailed)
+        }
+    }
+}
+
+impl_unchecked_conversions!(
+    SignatureAffineUnchecked,
+    SignatureAffine,
+    SignatureProjective,
+    SignatureCompressed,
+    Signature,
+    G2Affine
+);
+
+#[cfg(not(target_os = "solana"))]
+impl_add_to_accumulator!(
+    AddToSignatureProjective,
+    SignatureProjective,
+    SignatureAffineUnchecked,
+    affine
 );
