@@ -61,7 +61,7 @@ pub struct RuntimeAccount {
     /// The value of this field is not directly used and always set to `0`.
     /// Entrypoint implementations may use this space for their own purposes,
     /// e.g., to track account resizing.
-    pub padding: u32,
+    pub padding: [u8; 4],
 
     /// Address of the account.
     pub address: Address,
