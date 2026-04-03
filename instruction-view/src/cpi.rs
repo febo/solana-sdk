@@ -673,8 +673,10 @@ pub unsafe fn invoke_signed_unchecked(
             data_len: instruction.data.len() as u64,
         };
 
-        /// Compiler fence to ensure all the writes to the `accounts` slice are visible
-        /// to the callee before the syscall is invoked.
+        // Force the compiler to materialise all memory operations before entering
+        // a CPI call. Although the risk of it optimising something across a CPI
+        // call is minimal, it seems a good practice to do this regardless of what
+        // the calling code might be doing.
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 
         unsafe {
