@@ -572,10 +572,6 @@ unsafe fn inner_invoke_signed_with_slice<'account, A: AsRef<AccountView>>(
                 // If the account is required to be writable, it cannot
                 //  be currently borrowed.
                 account_view.as_ref().check_borrow_mut()?;
-            } else {
-                // If the account is required to be read-only, it cannot
-                // be currently mutably borrowed.
-                account_view.as_ref().check_borrow()?;
             }
 
             CpiAccount::init_from_account_view(account_view.as_ref(), account);
@@ -676,6 +672,10 @@ pub unsafe fn invoke_signed_unchecked(
             data: instruction.data.as_ptr(),
             data_len: instruction.data.len() as u64,
         };
+
+        /// Compiler fence to ensure all the writes to the `accounts` slice are visible
+        /// to the callee before the syscall is invoked.
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 
         unsafe {
             sol_invoke_signed_c(
