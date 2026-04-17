@@ -55,7 +55,23 @@ pub mod logger;
 mod wrapper;
 
 #[cfg(feature = "macro")]
-pub use solana_program_log_macro::*;
+#[doc(hidden)]
+pub mod __macro_reexports {
+    pub use solana_program_log_macro::log;
+}
+
+#[cfg(feature = "macro")]
+pub use solana_program_log_macro::log_cu_usage;
+
+#[cfg(feature = "macro")]
+/// See [`solana_program_log_macro::log`] for full documentation.
+#[macro_export]
+macro_rules! log {
+    ( $($tt:tt)* ) => {
+        $crate::__macro_reexports::log!($crate, $($tt)*)
+    };
+}
+
 pub use {
     logger::{Argument, Logger},
     wrapper::*,

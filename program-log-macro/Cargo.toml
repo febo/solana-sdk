@@ -19,6 +19,7 @@ rustdoc-args = ["--cfg=docsrs"]
 proc-macro = true
 
 [dependencies]
+proc-macro-crate = "3"
 quote = { workspace = true }
 regex = { workspace = true }
 syn = { workspace = true, features = ["extra-traits", "full"] }
