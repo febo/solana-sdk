@@ -4220,7 +4220,6 @@ dependencies = [
 name = "solana-program-log-macro"
 version = "1.0.0"
 dependencies = [
- "proc-macro-crate",
  "quote",
  "regex",
  "syn 2.0.117",

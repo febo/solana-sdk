@@ -7,7 +7,6 @@ extern crate alloc;
 use {
     alloc::{format, string::ToString, vec::Vec},
     proc_macro::TokenStream,
-    proc_macro_crate::{crate_name, FoundCrate},
     quote::quote,
     regex::Regex,
     syn::{
@@ -23,7 +22,7 @@ const DEFAULT_BUFFER_SIZE: &str = "200";
 
 /// The default name of the `solana-program-log` package to search for when
 /// discovering the crate path.
-const PROGRAM_LOG_PACKAGE_NAME: &str = "solana-program-log";
+const PROGRAM_LOG_PACKAGE_NAME: &str = "::solana_program_log";
 
 /// Represents the input arguments to the `log!` macro.
 struct LogArgs {
@@ -86,19 +85,17 @@ impl Parse for LogArgs {
 }
 
 /// Represents the input arguments to the `log_cu_usage` attribute macro.
-enum LogCuUsageArgs {
-    /// Discover the crate path for the `Logger` struct by searching for
-    /// the `solana-program-log` package in the dependency graph.
-    Discover,
-
+struct LogCuUsageArgs {
     /// Explicitly specify the crate path for the `Logger` struct.
-    CratePath(Path),
+    crate_path: Path,
 }
 
 impl Parse for LogCuUsageArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            return Ok(Self::Discover);
+            return Ok(Self {
+                crate_path: parse_str::<Path>(PROGRAM_LOG_PACKAGE_NAME)?,
+            });
         }
 
         // Support for `crate = <PATH>`.
@@ -112,7 +109,7 @@ impl Parse for LogCuUsageArgs {
                 return Err(input.error("unexpected tokens after `crate = ...`"));
             }
 
-            return Ok(Self::CratePath(crate_path));
+            return Ok(Self { crate_path });
         }
 
         // Support for standalone path.
@@ -122,33 +119,8 @@ impl Parse for LogCuUsageArgs {
             return Err(input.error("unexpected tokens after crate path"));
         }
 
-        Ok(Self::CratePath(crate_path))
+        Ok(Self { crate_path })
     }
-}
-
-fn discovered_log_crate() -> syn::Result<Path> {
-    let crate_name = match crate_name(PROGRAM_LOG_PACKAGE_NAME) {
-        Ok(FoundCrate::Itself) => "crate".to_string(),
-        Ok(FoundCrate::Name(name)) => name,
-        Err(error) => {
-            return Err(Error::new(
-                proc_macro::Span::call_site().into(),
-                format!(
-                    "failed to resolve `{PROGRAM_LOG_PACKAGE_NAME}` while expanding \
-                     `solana-program-log-macro`: {error}"
-                ),
-            ));
-        }
-    };
-
-    parse_str(&crate_name).map_err(|error| {
-        Error::new(
-            proc_macro::Span::call_site().into(),
-            format!(
-                "failed to parse `{crate_name}` as the crate path for `{PROGRAM_LOG_PACKAGE_NAME}`: {error}",
-            ),
-        )
-    })
 }
 
 /// Companion `log!` macro.
@@ -354,13 +326,7 @@ pub fn log(input: TokenStream) -> TokenStream {
 ///
 #[proc_macro_attribute]
 pub fn log_cu_usage(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let crate_path = match parse_macro_input!(attr as LogCuUsageArgs) {
-        LogCuUsageArgs::Discover => match discovered_log_crate() {
-            Ok(path) => path,
-            Err(error) => return error.to_compile_error().into(),
-        },
-        LogCuUsageArgs::CratePath(path) => path,
-    };
+    let crate_path = parse_macro_input!(attr as LogCuUsageArgs).crate_path;
     let mut input = parse_macro_input!(item as ItemFn);
     let fn_name = &input.sig.ident;
     let block = &input.block;
@@ -392,31 +358,23 @@ mod tests {
     };
 
     #[test]
-    fn log_cu_usage_args_support_empty_input() {
-        assert!(matches!(
-            parse_str::<LogCuUsageArgs>("").unwrap(),
-            LogCuUsageArgs::Discover
-        ));
+    fn log_cu_usage() {
+        let args = parse_str::<LogCuUsageArgs>("").unwrap();
+        let expected: Path = parse_quote!(::solana_program_log);
+        assert_eq!(args.crate_path, expected);
     }
 
     #[test]
     fn log_cu_usage_args_support_standalone_path() {
         let args = parse_str::<LogCuUsageArgs>("mylog").unwrap();
-        match args {
-            LogCuUsageArgs::CratePath(path) => assert_eq!(path, parse_quote!(mylog)),
-            LogCuUsageArgs::Discover => panic!("expected explicit crate path"),
-        }
+        let expected: Path = parse_quote!(mylog);
+        assert_eq!(args.crate_path, expected);
     }
 
     #[test]
     fn log_cu_usage_args_support_crate_equals_path() {
         let args = parse_str::<LogCuUsageArgs>("crate = another_log").unwrap();
-        match args {
-            LogCuUsageArgs::CratePath(path) => {
-                let expected: Path = parse_quote!(another_log);
-                assert_eq!(path, expected);
-            }
-            LogCuUsageArgs::Discover => panic!("expected explicit crate path"),
-        }
+        let expected: Path = parse_quote!(another_log);
+        assert_eq!(args.crate_path, expected);
     }
 }
