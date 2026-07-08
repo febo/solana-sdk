@@ -4117,6 +4117,7 @@ dependencies = [
  "solana-packet",
  "solana-pubkey",
  "static_assertions",
+ "wincode",
 ]
 
 [[package]]
