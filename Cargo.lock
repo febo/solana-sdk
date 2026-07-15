@@ -4043,7 +4043,7 @@ dependencies = [
 
 [[package]]
 name = "solana-nonce-account"
-version = "4.1.0"
+version = "4.1.1"
 dependencies = [
  "bincode",
  "solana-account",
