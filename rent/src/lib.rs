@@ -12,13 +12,19 @@ extern crate std;
 #[cfg(feature = "sysvar")]
 pub mod sysvar;
 
+#[cfg(feature = "wincode")]
+use core::mem::MaybeUninit;
 #[cfg(feature = "serde")]
 use serde::ser::SerializeStruct;
 #[cfg(feature = "frozen-abi")]
 use solana_frozen_abi_macro::{AbiExample, StableAbi, StableAbiSample};
 use solana_sdk_macro::CloneZeroed;
 #[cfg(feature = "wincode")]
-use wincode::{config::ConfigCore, io::Writer, SchemaWrite, WriteResult};
+use wincode::{
+    config::ConfigCore,
+    io::{Reader, Writer},
+    ReadResult, SchemaRead, SchemaWrite, WriteResult,
+};
 
 /// Configuration of network rent.
 ///
@@ -27,7 +33,6 @@ use wincode::{config::ConfigCore, io::Writer, SchemaWrite, WriteResult};
 /// account is still `17` bytes, which is the size of the `Rent` sysvar account.
 #[repr(C)]
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample, StableAbi, StableAbiSample))]
-#[cfg_attr(feature = "wincode", derive(wincode::SchemaRead))]
 #[derive(PartialEq, CloneZeroed, Debug)]
 pub struct Rent {
     /// Rental rate in lamports/byte.
@@ -192,7 +197,19 @@ impl<'de> serde::Deserialize<'de> for Rent {
     where
         D: serde::Deserializer<'de>,
     {
-        let lamports_per_byte = u64::deserialize(deserializer)?;
+        #[derive(serde_derive::Deserialize)]
+        struct RentWithDeprecatedFields {
+            lamports_per_byte: u64,
+            _exemption_threshold: [u8; 8],
+            _burn_percent: u8,
+        }
+
+        let RentWithDeprecatedFields {
+            lamports_per_byte,
+            _exemption_threshold,
+            _burn_percent,
+        } = serde::Deserialize::deserialize(deserializer)?;
+
         Ok(Self { lamports_per_byte })
     }
 }
@@ -208,6 +225,26 @@ impl serde::Serialize for Rent {
         state.serialize_field("exemption_threshold", &SIMD0194_EXEMPTION_THRESHOLD)?;
         state.serialize_field("burn_percent", &DEFAULT_BURN_PERCENT)?;
         state.end()
+    }
+}
+
+#[cfg(feature = "wincode")]
+unsafe impl<'de, C: ConfigCore> SchemaRead<'de, C> for Rent {
+    type Dst = Rent;
+
+    fn read(mut reader: impl Reader<'de>, dst: &mut MaybeUninit<Self::Dst>) -> ReadResult<()> {
+        // SAFETY: `SIZE` is the serialized size of the `Rent` sysvar account,
+        // which is 17 bytes.
+        let mut reader = unsafe { reader.as_trusted_for(SIZE)? };
+        let lamports_per_byte = <u64 as SchemaRead<C>>::get(reader.by_ref())?;
+        // Consume the deprecated fields to maintain compatibility with the serialized
+        // size of the `Rent` sysvar account.
+        const DEPRECATED_FIELDS_SIZE: usize = SIZE - size_of::<u64>();
+        let _ = reader.take_array::<DEPRECATED_FIELDS_SIZE>()?;
+
+        dst.write(Rent { lamports_per_byte });
+
+        Ok(())
     }
 }
 
