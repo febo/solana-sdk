@@ -12,6 +12,8 @@ extern crate std;
 #[cfg(feature = "sysvar")]
 pub mod sysvar;
 
+#[cfg(feature = "serde")]
+use serde::ser::SerializeStruct;
 #[cfg(feature = "frozen-abi")]
 use solana_frozen_abi_macro::{AbiExample, StableAbi, StableAbiSample};
 use solana_sdk_macro::CloneZeroed;
@@ -25,10 +27,6 @@ use wincode::{config::ConfigCore, io::Writer, SchemaWrite, WriteResult};
 /// account is still `17` bytes, which is the size of the `Rent` sysvar account.
 #[repr(C)]
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample, StableAbi, StableAbiSample))]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde_derive::Deserialize, serde_derive::Serialize)
-)]
 #[cfg_attr(feature = "wincode", derive(wincode::SchemaRead))]
 #[derive(PartialEq, CloneZeroed, Debug)]
 pub struct Rent {
@@ -62,6 +60,17 @@ const MAX_LAMPORTS_PER_BYTE: u64 = 1_759_197_129_867;
 /// - $0.01 per megabyte day
 /// - $7.30 per megabyte
 pub const DEFAULT_LAMPORTS_PER_BYTE: u64 = 6_960;
+
+/// The `f64::to_le_bytes` representation of the SIMD-0194 exemption threshold.
+///
+/// This value is equivalent to `1.0f64`. It is only used to check whether
+/// the exemption threshold is the deprecated value to avoid performing
+/// floating-point operations on-chain.
+#[cfg(any(feature = "serde", feature = "wincode"))]
+const SIMD0194_EXEMPTION_THRESHOLD: [u8; 8] = [0, 0, 0, 0, 0, 0, 240, 63];
+
+#[cfg(any(feature = "serde", feature = "wincode"))]
+const DEFAULT_BURN_PERCENT: u8 = 50;
 
 /// Account storage overhead for calculation of base rent.
 ///
@@ -177,6 +186,31 @@ impl Rent {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Rent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let lamports_per_byte = u64::deserialize(deserializer)?;
+        Ok(Self { lamports_per_byte })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Rent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Rent", 3)?;
+        state.serialize_field("lamports_per_byte", &self.lamports_per_byte)?;
+        state.serialize_field("exemption_threshold", &SIMD0194_EXEMPTION_THRESHOLD)?;
+        state.serialize_field("burn_percent", &DEFAULT_BURN_PERCENT)?;
+        state.end()
+    }
+}
+
 #[cfg(feature = "wincode")]
 unsafe impl<C: ConfigCore> SchemaWrite<C> for Rent {
     type Src = Self;
@@ -188,10 +222,12 @@ unsafe impl<C: ConfigCore> SchemaWrite<C> for Rent {
     }
 
     fn write(mut writer: impl Writer, src: &Self::Src) -> WriteResult<()> {
-        // SAFETY: `size_of::<Rent>() < SIZE` always holds, so we can safely write
-        // `size_of::<Rent>()` bytes.
+        // SAFETY: `SIZE` is the serialized size of the `Rent` sysvar account,
+        // which is 17 bytes.
         let mut writer = unsafe { writer.as_trusted_for(SIZE) }?;
         writer.write(&src.lamports_per_byte.to_le_bytes())?;
+        writer.write(&SIMD0194_EXEMPTION_THRESHOLD)?;
+        writer.write(&DEFAULT_BURN_PERCENT.to_le_bytes())?;
         writer.finish()?;
 
         Ok(())
