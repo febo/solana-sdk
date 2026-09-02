@@ -19,6 +19,10 @@ use solana_sdk_macro::CloneZeroed;
 use wincode::{config::ConfigCore, io::Writer, SchemaWrite, WriteResult};
 
 /// Configuration of network rent.
+///
+/// The `Rent` sysvar used to include `exemption_threshold` and `burn_percent` fields, but
+/// these were deprecated and have been removed. The serialized size of the `Rent` sysvar
+/// account is still `17` bytes, which is the size of the `Rent` sysvar account.
 #[repr(C)]
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample, StableAbi, StableAbiSample))]
 #[cfg_attr(
@@ -179,8 +183,7 @@ unsafe impl<C: ConfigCore> SchemaWrite<C> for Rent {
 
     #[inline(always)]
     fn size_of(_src: &Self::Src) -> WriteResult<usize> {
-        // The reported size of the `Rent` struct is 17 bytes, which the size of the
-        // serialized sysvar account.
+        // The serialized `Rent` sysvar account is 17 bytes.
         Ok(SIZE)
     }
 
