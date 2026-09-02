@@ -15,6 +15,8 @@ pub mod sysvar;
 #[cfg(feature = "frozen-abi")]
 use solana_frozen_abi_macro::{AbiExample, StableAbi, StableAbiSample};
 use solana_sdk_macro::CloneZeroed;
+#[cfg(feature = "wincode")]
+use wincode::{config::ConfigCore, io::Writer, SchemaWrite, WriteResult};
 
 /// Configuration of network rent.
 #[repr(C)]
@@ -23,7 +25,7 @@ use solana_sdk_macro::CloneZeroed;
     feature = "serde",
     derive(serde_derive::Deserialize, serde_derive::Serialize)
 )]
-#[cfg_attr(feature = "wincode", derive(wincode::SchemaWrite, wincode::SchemaRead))]
+#[cfg_attr(feature = "wincode", derive(wincode::SchemaRead))]
 #[derive(PartialEq, CloneZeroed, Debug)]
 pub struct Rent {
     /// Rental rate in lamports/byte.
@@ -171,9 +173,37 @@ impl Rent {
     }
 }
 
+#[cfg(feature = "wincode")]
+unsafe impl<C: ConfigCore> SchemaWrite<C> for Rent {
+    type Src = Self;
+
+    #[inline(always)]
+    fn size_of(_src: &Self::Src) -> WriteResult<usize> {
+        // The reported size of the `Rent` struct is 17 bytes, which the size of the
+        // serialized sysvar account.
+        Ok(SIZE)
+    }
+
+    fn write(mut writer: impl Writer, src: &Self::Src) -> WriteResult<()> {
+        // SAFETY: `size_of::<Rent>() < SIZE` always holds, so we can safely write
+        // `size_of::<Rent>()` bytes.
+        let mut writer = unsafe { writer.as_trusted_for(SIZE) }?;
+        writer.write(&src.lamports_per_byte.to_le_bytes())?;
+        writer.finish()?;
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use {super::*, proptest::proptest};
+    use {
+        super::{sysvar, *},
+        core::assert_eq,
+        proptest::proptest,
+        solana_account::{AccountSharedData, WritableAccount},
+        wincode::{io::WriteError::WriteSizeLimit, WriteError},
+    };
 
     #[test]
     fn test_size_of() {
@@ -205,5 +235,57 @@ mod tests {
             let default_calc = default_rent.minimum_balance(bytes);
             assert_eq!(default_calc, previous_rent.minimum_balance(bytes));
         }
+    }
+
+    #[test]
+    fn test_deserialize() {
+        let data = [1u8; 17];
+        let rent: Rent = wincode::deserialize(&data).unwrap();
+        assert_eq!(
+            rent,
+            Rent::with_lamports_per_byte(u64::from_le_bytes([1; 8]))
+        );
+    }
+
+    #[test]
+    fn test_serialize() {
+        let rent = Rent::with_lamports_per_byte(1);
+        let serialized_len =
+            wincode::serialized_size(&rent).expect("failed to get serialized sysvar size") as usize;
+
+        let mut account = AccountSharedData::new(
+            rent.minimum_balance(serialized_len),
+            serialized_len,
+            &sysvar::id(),
+        );
+        wincode::serialize_into(account.data_as_mut_slice(), &rent).unwrap();
+
+        assert_eq!(serialized_len, SIZE);
+        assert_eq!(account.data_as_mut_slice().len(), serialized_len);
+        assert_eq!(
+            account.data_as_mut_slice()[..8],
+            rent.lamports_per_byte.to_le_bytes()
+        );
+    }
+
+    #[test]
+    fn test_fail_serialize() {
+        let rent = Rent::with_lamports_per_byte(1);
+        // Wrongly using `size_of::<Rent>()` instead of `wincode::serialized_size(&rent)`
+        // to get the serialized length
+        let serialized_len = size_of::<Rent>();
+
+        let mut account = AccountSharedData::new(
+            rent.minimum_balance(serialized_len),
+            serialized_len,
+            &sysvar::id(),
+        );
+        let result = wincode::serialize_into(account.data_as_mut_slice(), &rent);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            WriteError::Io(WriteSizeLimit(SIZE))
+        ));
     }
 }

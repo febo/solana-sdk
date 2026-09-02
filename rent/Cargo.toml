@@ -33,8 +33,9 @@ wincode = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+solana-account = { workspace = true }
 solana-clock = { workspace = true }
-solana-rent = { path = ".", features = ["wincode"] }
+solana-rent = { path = ".", features = ["sysvar", "wincode"] }
 static_assertions = { workspace = true }
 
 [lints]

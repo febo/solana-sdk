@@ -4187,6 +4187,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_derive",
+ "solana-account",
  "solana-clock",
  "solana-frozen-abi",
  "solana-frozen-abi-macro",
