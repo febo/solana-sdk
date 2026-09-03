@@ -28,9 +28,9 @@ use wincode::{
 
 /// Configuration of network rent.
 ///
-/// The `Rent` sysvar used to include `exemption_threshold` and `burn_percent` fields, but
-/// these were deprecated and have been removed. The serialized size of the `Rent` sysvar
-/// account is still `17` bytes, which is the size of the `Rent` sysvar account.
+/// The `Rent` struct used to include `exemption_threshold` and `burn_percent` fields, but
+/// these were deprecated and have been removed. The serialized size of the `Rent` struct
+/// is still `17` bytes, which is the size of the `Rent` sysvar account.
 #[repr(C)]
 #[cfg_attr(feature = "frozen-abi", derive(AbiExample, StableAbi, StableAbiSample))]
 #[derive(PartialEq, CloneZeroed, Debug)]
@@ -68,14 +68,44 @@ pub const DEFAULT_LAMPORTS_PER_BYTE: u64 = 6_960;
 
 /// The `f64::to_le_bytes` representation of the SIMD-0194 exemption threshold.
 ///
-/// This value is equivalent to `1.0f64`. It is only used to check whether
-/// the exemption threshold is the deprecated value to avoid performing
-/// floating-point operations on-chain.
+/// This value is equivalent to `1.0f64`. It is only used when serializing the
+/// `Rent` sysvar to maintain compatibility with the serialized representation.
 #[cfg(any(feature = "serde", feature = "wincode"))]
 const SIMD0194_EXEMPTION_THRESHOLD: [u8; 8] = [0, 0, 0, 0, 0, 0, 240, 63];
 
+/// The `burn_percent` value of SIMD-0194.
+///
+/// The `burn_percent` value is deprecated and has been removed from the `Rent` struct.
+/// It is only used when serializing the `Rent` sysvar to maintain compatibility with
+/// the serialized representation.
 #[cfg(any(feature = "serde", feature = "wincode"))]
-const DEFAULT_BURN_PERCENT: u8 = 50;
+const SIMD0194_BURN_PERCENT: u8 = 50;
+
+/// Initial rental rate in lamports/byte-year. It is only used when serializing
+/// the `Rent` sysvar to maintain compatibility with the serialized representation.
+///
+/// This calculation is based on:
+/// - 10^9 lamports per SOL
+/// - $1 per SOL
+/// - $0.01 per megabyte day
+/// - $3.65 per megabyte year
+#[cfg(any(feature = "serde", feature = "wincode"))]
+pub const GENESIS_LAMPORTS_PER_BYTE_YEAR: u64 = 1_000_000_000 / 100 * 365 / (1024 * 1024);
+
+/// The `f64::to_le_bytes` representation of the initial exemption threshold.
+///
+/// This value is equivalent to `2.0f64`. It is only used when serializing the
+/// `Rent` sysvar to maintain compatibility with the serialized representation.
+#[cfg(any(feature = "serde", feature = "wincode"))]
+const GENESIS_EXEMPTION_THRESHOLD: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 64];
+
+/// The initial `burn_percent` value.
+///
+/// The `burn_percent` value is deprecated and has been removed from the `Rent` struct.
+/// It is only used when serializing the `Rent` sysvar to maintain compatibility with
+/// the serialized representation.
+#[cfg(any(feature = "serde", feature = "wincode"))]
+const GENESIS_BURN_PERCENT: u8 = 100;
 
 /// Account storage overhead for calculation of base rent.
 ///
@@ -85,7 +115,6 @@ pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 
 impl Default for Rent {
     fn default() -> Self {
-        #[allow(deprecated)]
         Self {
             lamports_per_byte: DEFAULT_LAMPORTS_PER_BYTE,
         }
@@ -94,9 +123,6 @@ impl Default for Rent {
 
 impl Rent {
     /// Calculates the minimum balance for rent exemption.
-    ///
-    /// This method avoids floating-point operations when the `exemption_threshold`
-    /// is the default value.
     ///
     /// # Arguments
     ///
@@ -109,7 +135,7 @@ impl Rent {
     /// # Panics
     ///
     /// Panics if `data_len` exceeds the maximum permitted data length or if the
-    /// `lamports_per_byte` is too large based on the `exemption_threshold`.
+    /// `lamports_per_byte` is too large.
     #[inline(always)]
     pub fn minimum_balance(&self, data_len: usize) -> u64 {
         self.try_minimum_balance(data_len)
@@ -119,14 +145,10 @@ impl Rent {
     /// Calculates the minimum balance for rent exemption without performing
     /// any validation.
     ///
-    /// This method avoids floating-point operations when the `exemption_threshold`
-    /// is the default value.
-    ///
     /// # Important
     ///
     /// The caller must ensure that `data_len` is within the permitted limit
-    /// and the `lamports_per_byte` is within the permitted limit based on
-    /// the `exemption_threshold` to avoid overflow.
+    /// and the `lamports_per_byte` is within the permitted limit to avoid overflow.
     ///
     /// # Arguments
     ///
@@ -142,9 +164,6 @@ impl Rent {
 
     /// Calculates the minimum balance for rent exemption.
     ///
-    /// This method avoids floating-point operations when the `exemption_threshold`
-    /// is the default value.
-    ///
     /// # Arguments
     ///
     /// * `data_len` - The number of bytes in the account
@@ -152,17 +171,15 @@ impl Rent {
     /// # Returns
     ///
     /// * `Some(u64)` - The minimum balance in lamports for rent exemption, if all checks pass.
-    /// * `None` - If `data_len` exceeds the maximum permitted data length, or if the
-    ///   `lamports_per_byte` is too large based on the `exemption_threshold`, which
-    ///   would cause an overflow.
+    /// * `None` - If `data_len` exceeds the maximum permitted data length, or if
+    ///   `lamports_per_byte` is too large to safely support every permitted data length.
     #[inline(always)]
     pub fn try_minimum_balance(&self, data_len: usize) -> Option<u64> {
         if data_len as u64 > MAX_PERMITTED_DATA_LENGTH {
             return None;
         }
 
-        // Validate `lamports_per_byte` based on `exemption_threshold`
-        // to prevent overflow.
+        // Validate `lamports_per_byte` to prevent overflow.
 
         if self.lamports_per_byte > MAX_LAMPORTS_PER_BYTE {
             return None;
@@ -222,8 +239,15 @@ impl serde::Serialize for Rent {
     {
         let mut state = serializer.serialize_struct("Rent", 3)?;
         state.serialize_field("lamports_per_byte", &self.lamports_per_byte)?;
-        state.serialize_field("exemption_threshold", &SIMD0194_EXEMPTION_THRESHOLD)?;
-        state.serialize_field("burn_percent", &DEFAULT_BURN_PERCENT)?;
+
+        if self.lamports_per_byte == GENESIS_LAMPORTS_PER_BYTE_YEAR {
+            state.serialize_field("exemption_threshold", &GENESIS_EXEMPTION_THRESHOLD)?;
+            state.serialize_field("burn_percent", &GENESIS_BURN_PERCENT)?;
+        } else {
+            state.serialize_field("exemption_threshold", &SIMD0194_EXEMPTION_THRESHOLD)?;
+            state.serialize_field("burn_percent", &SIMD0194_BURN_PERCENT)?;
+        }
+
         state.end()
     }
 }
@@ -263,8 +287,15 @@ unsafe impl<C: ConfigCore> SchemaWrite<C> for Rent {
         // which is 17 bytes.
         let mut writer = unsafe { writer.as_trusted_for(SIZE) }?;
         writer.write(&src.lamports_per_byte.to_le_bytes())?;
-        writer.write(&SIMD0194_EXEMPTION_THRESHOLD)?;
-        writer.write(&DEFAULT_BURN_PERCENT.to_le_bytes())?;
+
+        if src.lamports_per_byte == GENESIS_LAMPORTS_PER_BYTE_YEAR {
+            writer.write(&GENESIS_EXEMPTION_THRESHOLD)?;
+            writer.write(&GENESIS_BURN_PERCENT.to_le_bytes())?;
+        } else {
+            writer.write(&SIMD0194_EXEMPTION_THRESHOLD)?;
+            writer.write(&SIMD0194_BURN_PERCENT.to_le_bytes())?;
+        }
+
         writer.finish()?;
 
         Ok(())
