@@ -335,12 +335,12 @@ mod tests {
         #[test]
         fn test_minimum_balance(bytes in 0usize..=MAX_PERMITTED_DATA_LENGTH as usize) {
             let default_rent = Rent::default();
-            #[allow(deprecated)]
-            let previous_rent = Rent {
-                lamports_per_byte: DEFAULT_LAMPORTS_PER_BYTE / 2,
-            };
             let default_calc = default_rent.minimum_balance(bytes);
-            assert_eq!(default_calc, previous_rent.minimum_balance(bytes));
+
+            // check that the calculation gives the same result using floats
+            let float_calc = (((ACCOUNT_STORAGE_OVERHEAD + bytes as u64) * GENESIS_LAMPORTS_PER_BYTE_YEAR) as f64
+                * f64::from_le_bytes(GENESIS_EXEMPTION_THRESHOLD)) as u64;
+            assert_eq!(default_calc, float_calc);
         }
     }
 
